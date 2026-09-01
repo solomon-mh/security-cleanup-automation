@@ -1,0 +1,91 @@
+name: Batch Security Cleanup
+
+on:
+  workflow_dispatch:
+    inputs:
+      repos:
+        description: 'Comma-separated repo names, or "all" to use the built-in batch list'
+        required: true
+        default: ''
+      dry_run:
+        description: 'Preview changes only (recommended first run)'
+        required: true
+        type: choice
+        options:
+          - 'true'
+          - 'false'
+        default: 'true'
+      github_user:
+        description: 'GitHub owner/user that owns the target repositories'
+        required: true
+        default: 'solomon-mh'
+      push_branch_prefix:
+        description: 'Prefix for pushed review branches when dry_run=false'
+        required: true
+        default: 'security-cleanup'
+
+jobs:
+  batch-cleanup:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+
+    steps:
+      - name: Checkout automation repo
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Validate workflow inputs
+        env:
+          REPOS_INPUT: ${{ github.event.inputs.repos }}
+          DRY_RUN: ${{ github.event.inputs.dry_run }}
+          CLEANUP_REPO_TOKEN: ${{ secrets.CLEANUP_REPO_TOKEN }}
+        run: |
+          if [ -z "$REPOS_INPUT" ]; then
+            echo "::error::Provide a comma-separated repo list or 'all'."
+            exit 1
+          fi
+
+          if [ "$DRY_RUN" = "false" ] && [ -z "$CLEANUP_REPO_TOKEN" ]; then
+            echo "::error::Set the CLEANUP_REPO_TOKEN secret before running in apply mode."
+            exit 1
+          fi
+
+      - name: Run batch cleanup
+        env:
+          GH_TOKEN: ${{ secrets.CLEANUP_REPO_TOKEN }}
+        run: |
+          chmod +x ./batch-cleanup.sh
+
+          args=(
+            --github-user "${{ github.event.inputs.github_user }}"
+            --push-branch-prefix "${{ github.event.inputs.push_branch_prefix }}"
+            --workspace "${RUNNER_TEMP}/security-cleanup-batch"
+            --log-file "${RUNNER_TEMP}/batch-cleanup.log"
+          )
+
+          if [ "${{ github.event.inputs.repos }}" = "all" ]; then
+            args+=(--all)
+          else
+            args+=(--repos "${{ github.event.inputs.repos }}")
+          fi
+
+          if [ "${{ github.event.inputs.dry_run }}" = "false" ]; then
+            args+=(--no-dry-run)
+          fi
+
+          ./batch-cleanup.sh "${args[@]}"
+
+      - name: Upload batch cleanup artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: batch-cleanup-artifacts
+          path: |
+            ${{ runner.temp }}/batch-cleanup.log
+            ${{ runner.temp }}/security-cleanup-batch/*-cleanup_report.json
+            ${{ runner.temp }}/security-cleanup-batch/*/cleanup_output.log

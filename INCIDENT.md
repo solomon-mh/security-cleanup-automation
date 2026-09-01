@@ -162,8 +162,8 @@ git add -A && git commit -m "security: cleanup" && git push
 ```bash
 wget https://raw.githubusercontent.com/solomon-mh/security-cleanup-automation/main/batch-cleanup.sh
 chmod +x batch-cleanup.sh
-./batch-cleanup.sh  # Dry-run mode first
-./batch-cleanup.sh --no-dry-run  # Apply changes
+./batch-cleanup.sh --repos traceOn,auth  # Dry-run mode first
+GH_TOKEN=YOUR_PAT ./batch-cleanup.sh --repos traceOn,auth --no-dry-run  # Push review branches
 ```
 
 ### Option 3: GitHub Actions Workflow (Most Controlled)
@@ -313,13 +313,13 @@ eslint.config.js (~2KB)
 3. ✅ Read DEPLOYMENT.md for step-by-step instructions
 
 ### Short Term (Today)
-1. Run cleanup in dry-run mode: `./batch-cleanup.sh`
+1. Run cleanup in dry-run mode: `./batch-cleanup.sh --repos traceOn,auth`
 2. Review scan results in cleanup_*.log
 3. Run verification script
 4. Harden GitHub account security
 
 ### Medium Term (This Week)
-1. Apply cleanup: `./batch-cleanup.sh --no-dry-run`
+1. Apply cleanup: `GH_TOKEN=YOUR_PAT ./batch-cleanup.sh --repos traceOn,auth --no-dry-run`
 2. Verify all repos pass verification checks
 3. Enable branch protection on all repos
 4. Enable GitHub security scanning
