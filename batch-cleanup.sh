@@ -207,7 +207,7 @@ repo_clone_url() {
     local repo_name="$1"
 
     if [[ "$REPO_BASE_URL" == https://github.com/* && -n "$TOKEN" ]]; then
-        printf '******github.com/%s/%s.git' "x-access-token" "$TOKEN" "$GITHUB_USER" "$repo_name"
+        printf '%s' "https://x-access-token:${TOKEN}@github.com/${GITHUB_USER}/${repo_name}.git"
     else
         printf '%s/%s.git' "${REPO_BASE_URL%/}" "$repo_name"
     fi
