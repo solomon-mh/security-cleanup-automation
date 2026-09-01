@@ -57,24 +57,28 @@ jobs:
 
       - name: Run batch cleanup
         env:
+          DRY_RUN_INPUT: ${{ github.event.inputs.dry_run }}
+          GITHUB_USER_INPUT: ${{ github.event.inputs.github_user }}
           GH_TOKEN: ${{ secrets.CLEANUP_REPO_TOKEN }}
+          PUSH_BRANCH_PREFIX_INPUT: ${{ github.event.inputs.push_branch_prefix }}
+          REPOS_INPUT: ${{ github.event.inputs.repos }}
         run: |
           chmod +x ./batch-cleanup.sh
 
           args=(
-            --github-user "${{ github.event.inputs.github_user }}"
-            --push-branch-prefix "${{ github.event.inputs.push_branch_prefix }}"
+            --github-user "$GITHUB_USER_INPUT"
+            --push-branch-prefix "$PUSH_BRANCH_PREFIX_INPUT"
             --workspace "${RUNNER_TEMP}/security-cleanup-batch"
             --log-file "${RUNNER_TEMP}/batch-cleanup.log"
           )
 
-          if [ "${{ github.event.inputs.repos }}" = "all" ]; then
+          if [ "$REPOS_INPUT" = "all" ]; then
             args+=(--all)
           else
-            args+=(--repos "${{ github.event.inputs.repos }}")
+            args+=(--repos "$REPOS_INPUT")
           fi
 
-          if [ "${{ github.event.inputs.dry_run }}" = "false" ]; then
+          if [ "$DRY_RUN_INPUT" = "false" ]; then
             args+=(--no-dry-run)
           fi
 
@@ -84,6 +88,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
+          if-no-files-found: ignore
           name: batch-cleanup-artifacts
           path: |
             ${{ runner.temp }}/batch-cleanup.log
