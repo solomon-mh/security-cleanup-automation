@@ -57,6 +57,7 @@ CHANGED_REPOS=0
 PUSHED_REPOS=0
 FAILED_REPOS=0
 SKIPPED_REPOS=0
+FAILED_REPO_NAMES=()
 
 if [[ "${LOG_FILE}" = /* ]]; then
     LOG_FILE_PATH="${LOG_FILE}"
@@ -249,6 +250,7 @@ cleanup_repo() {
     if ! git clone "$clone_url" "$repo_dir" >/dev/null 2>&1; then
         log "${RED}[!]${NC} Failed to clone ${repo_name}. If this repo is private, set GH_TOKEN or GITHUB_TOKEN (PAT with access to target repos)."
         ((FAILED_REPOS++))
+        FAILED_REPO_NAMES+=("$repo_name")
         return 1
     fi
 
@@ -261,6 +263,7 @@ cleanup_repo() {
         log "${RED}[!]${NC} Cleanup script failed for ${repo_name}"
         cat "${repo_dir}/cleanup_output.log" >> "$LOG_FILE_PATH"
         ((FAILED_REPOS++))
+        FAILED_REPO_NAMES+=("$repo_name")
         return 1
     fi
 
@@ -300,6 +303,7 @@ cleanup_repo() {
 
     log "${RED}[!]${NC} Failed to push review branch for ${repo_name}"
     ((FAILED_REPOS++))
+    FAILED_REPO_NAMES+=("$repo_name")
     return 1
 }
 
@@ -330,6 +334,9 @@ log "Repositories with changes: $CHANGED_REPOS"
 log "Review branches pushed: $PUSHED_REPOS"
 log "Failed: $FAILED_REPOS"
 log "Skipped (no changes): $SKIPPED_REPOS"
+if ((FAILED_REPOS > 0)); then
+    log "Failed repositories: ${FAILED_REPO_NAMES[*]}"
+fi
 log "Log file: $LOG_FILE_PATH"
 log ""
 
@@ -341,5 +348,9 @@ else
 fi
 
 if ((FAILED_REPOS > 0)); then
+    if [[ "$DRY_RUN" = true ]]; then
+        log "${YELLOW}⚠️  Dry run completed with failures. Review failed repositories in the summary above.${NC}"
+        exit 0
+    fi
     exit 1
 fi
