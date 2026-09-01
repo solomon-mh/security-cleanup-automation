@@ -53,7 +53,7 @@ PUSH_BRANCH_PREFIX="${PUSH_BRANCH_PREFIX:-security-cleanup}"
 TOKEN="${GH_TOKEN:-${GITHUB_TOKEN:-}}"
 
 REPOS=()
-CHANGED_REPOS=0
+DIRTY_REPOS=0
 PUSHED_REPOS=0
 FAILED_REPOS=0
 SKIPPED_REPOS=0
@@ -277,7 +277,7 @@ cleanup_repo() {
         return 0
     fi
 
-    ((CHANGED_REPOS++))
+    ((DIRTY_REPOS++))
     log "${GREEN}[+]${NC} Changes detected in ${repo_name}"
     git -C "$repo_dir" diff --stat >> "$LOG_FILE_PATH"
 
@@ -330,7 +330,7 @@ log "${BLUE}========================================${NC}"
 log "${BLUE}Cleanup Summary${NC}"
 log "${BLUE}========================================${NC}"
 log "Target repositories: $TOTAL_REPOS"
-log "Repositories with changes: $CHANGED_REPOS"
+log "Repositories with detected changes: $DIRTY_REPOS"
 log "Review branches pushed: $PUSHED_REPOS"
 log "Failed: $FAILED_REPOS"
 log "Skipped (no changes): $SKIPPED_REPOS"
