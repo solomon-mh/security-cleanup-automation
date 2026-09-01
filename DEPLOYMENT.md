@@ -7,8 +7,11 @@
 # Make the batch script executable
 chmod +x batch-cleanup.sh
 
-# Run in DRY RUN mode first (no changes made)
-./batch-cleanup.sh
+# Run in DRY RUN mode first for an explicit repo list
+./batch-cleanup.sh --repos traceOn,auth
+
+# Or preview the full built-in batch list
+./batch-cleanup.sh --all
 
 # Review the scan_YYYYMMDD_HHMMSS.log file
 cat cleanup_*.log
@@ -21,12 +24,14 @@ cat cleanup_*.log
 
 ### Step 3: Apply Cleanup (Real Deployment)
 ```bash
-# Apply actual cleanup with commits and pushes
-./batch-cleanup.sh --no-dry-run
+# Apply cleanup by pushing review branches for the selected repos
+GH_TOKEN=YOUR_PAT ./batch-cleanup.sh --repos traceOn,auth --no-dry-run
 
 # Monitor progress in the log file
 tail -f cleanup_*.log
 ```
+
+> **Important:** For private repositories or GitHub Actions runs, use a personal access token with access to the target repositories. In this repository's workflow, store it as `CLEANUP_REPO_TOKEN`.
 
 ---
 

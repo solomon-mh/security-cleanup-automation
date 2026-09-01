@@ -1,0 +1,247 @@
+[0;34m========================================[0m
+[0;34mSecurity Cleanup - Batch Script[0m
+[0;34m========================================[0m
+
+[1;33mConfiguration:[0m
+  Target repositories: 27
+  Dry run mode: true
+  Workspace: /tmp/security-cleanup-20260901_180435
+  Log file: /home/runner/work/security-cleanup-automation/security-cleanup-automation/cleanup_20260901_180435.log
+
+[0;34m[*][0m Processing: traceOn
+[0;31m[!][0m Failed to clone traceOn. If this repo is private, set GH_TOKEN or GITHUB_TOKEN (PAT with access to target repos).
+
+[0;34m[*][0m Processing: traceon-loadrunner
+[1;33m[*][0m Scanning traceon-loadrunner...
+[0;32m[+][0m Changes detected in traceon-loadrunner
+ public/fonts/fa-solid-400.woff2 | 1 -
+ 1 file changed, 1 deletion(-)
+[1;33m[*][0m DRY RUN - Review diff in /tmp/security-cleanup-20260901_180435/traceon-loadrunner
+
+[0;34m[*][0m Processing: fetanfews-server
+[1;33m[*][0m Scanning fetanfews-server...
+[0;32m[+][0m Changes detected in fetanfews-server
+ public/fonts/fa-solid-400.woff2 | 1 -
+ 1 file changed, 1 deletion(-)
+[1;33m[*][0m DRY RUN - Review diff in /tmp/security-cleanup-20260901_180435/fetanfews-server
+
+[0;34m[*][0m Processing: Afalagi
+[0;31m[!][0m Failed to clone Afalagi. If this repo is private, set GH_TOKEN or GITHUB_TOKEN (PAT with access to target repos).
+
+[0;34m[*][0m Processing: aladia-QA
+[1;33m[*][0m Scanning aladia-QA...
+[1;33m[*][0m No malicious code found in aladia-QA
+
+[0;34m[*][0m Processing: auth
+[1;33m[*][0m Scanning auth...
+[0;32m[+][0m Changes detected in auth
+ eslint.config.mjs | 11 +----------
+ 1 file changed, 1 insertion(+), 10 deletions(-)
+[1;33m[*][0m DRY RUN - Review diff in /tmp/security-cleanup-20260901_180435/auth
+
+[0;34m[*][0m Processing: bahirdar_hotels_room_reservation_backend_api
+[1;33m[*][0m Scanning bahirdar_hotels_room_reservation_backend_api...
+[0;32m[+][0m Changes detected in bahirdar_hotels_room_reservation_backend_api
+ public/fonts/fa-solid-400.woff2                       |   1 -
+ .../hotels/hotels-1738605123360-833696712507412.png   | Bin 1624417 -> 0 bytes
+ .../hotels/hotels-1738605123391-6309956644157273.jpeg | Bin 1535612 -> 0 bytes
+ .../hotels/hotels-1739035790208-8853743300568264.jpeg | Bin 1530048 -> 0 bytes
+ .../hotels/hotels-1739035790232-5056752187865832.jpeg | Bin 1842966 -> 0 bytes
+ .../hotels/hotels-1739035790244-9950689810374114.jpeg | Bin 1420603 -> 0 bytes
+ .../hotels/hotels-1739035790255-8266123143618804.jpeg | Bin 2621326 -> 0 bytes
+ .../hotels/hotels-1739035825751-8642579244335389.jpeg | Bin 1530048 -> 0 bytes
+ .../hotels/hotels-1739035825759-6669295599699485.jpeg | Bin 1842966 -> 0 bytes
+ .../hotels/hotels-1739035825766-6985645020299738.jpeg | Bin 1420603 -> 0 bytes
+ .../hotels/hotels-1739035825774-5375421726833733.jpeg | Bin 2621326 -> 0 bytes
+ .../hotels-1739035997013-09010245481053003.jpeg       | Bin 1530048 -> 0 bytes
+ .../hotels/hotels-1739035997020-6169236914180389.jpeg | Bin 1842966 -> 0 bytes
+ .../hotels-1739035997037-049284639950059494.jpeg      | Bin 1420603 -> 0 bytes
+ .../hotels/hotels-1739035997050-9620013717625218.jpeg | Bin 2621326 -> 0 bytes
+ .../hotels-1739036304393-46524719959097083.jpeg       | Bin 1530048 -> 0 bytes
+ .../hotels/hotels-1739036304400-5589481704900925.jpeg | Bin 1842966 -> 0 bytes
+ .../hotels/hotels-1739036304413-9593223396715358.jpeg | Bin 1420603 -> 0 bytes
+ .../hotels/hotels-1739036304424-6523302628160998.jpeg | Bin 2621326 -> 0 bytes
+ .../hotels-1739037116363-33944562190566385.jpeg       | Bin 2944422 -> 0 bytes
+ .../hotels/hotels-1739037116401-8634324112973273.jpeg | Bin 1842966 -> 0 bytes
+ .../hotels/hotels-1739037116439-5167284084674668.jpeg | Bin 1420603 -> 0 bytes
+ .../hotels-1739037116448-25761998849877954.jpeg       | Bin 2621326 -> 0 bytes
+ .../hotels/hotels-1739037162506-0742134858245953.jpeg | Bin 2944422 -> 0 bytes
+ .../hotels/hotels-1739037162548-4800204233878438.jpeg | Bin 1842966 -> 0 bytes
+ .../hotels-1739037162556-34074214061534436.jpeg       | Bin 1420603 -> 0 bytes
+ .../hotels-1739037162559-14006221946958974.jpeg       | Bin 2621326 -> 0 bytes
+ .../hotels/hotels-1739116209177-6043293856814678.jpeg | Bin 1420603 -> 0 bytes
+ .../hotels/hotels-1739116209282-7864617758479222.jpeg | Bin 2621326 -> 0 bytes
+ .../hotels/hotels-1739116209343-7448319109639645.jpeg | Bin 1842966 -> 0 bytes
+ .../hotels/hotels-1739116209395-7806202993638356.jpeg | Bin 1530048 -> 0 bytes
+ .../hotels-1739118320850-023457201653422022.jpeg      | Bin 1085188 -> 0 bytes
+ .../hotels/hotels-1739118320857-4648911735432155.jpeg | Bin 2944422 -> 0 bytes
+ .../hotels/hotels-1739118329529-3041369732500776.jpeg | Bin 1085188 -> 0 bytes
+ .../hotels/hotels-1739118329532-4335932439179748.jpeg | Bin 2944422 -> 0 bytes
+ .../hotels/hotels-1739118349868-7046422544499209.jpeg | Bin 1085188 -> 0 bytes
+ .../hotels-1739118349877-10536370570567422.jpeg       | Bin 2944422 -> 0 bytes
+ .../hotels/hotels-1739120629460-8857832491275064.jpeg | Bin 1842966 -> 0 bytes
+ .../hotels-1739120629515-22571246219092078.jpeg       | Bin 1842966 -> 0 bytes
+ .../hotels-1739120629573-30408425201836287.jpeg       | Bin 1986571 -> 0 bytes
+ .../hotels/hotels-1739121440897-5941405646869169.jpeg | Bin 1420603 -> 0 bytes
+ .../hotels/hotels-1739121440903-5248320380845386.jpeg | Bin 1095566 -> 0 bytes
+ .../hotels/hotels-1739121773662-9342843112184658.jpeg | Bin 1085188 -> 0 bytes
+ .../hotels/hotels-1739121773685-6624024176033276.jpeg | Bin 1986571 -> 0 bytes
+ .../hotels/hotels-1739122232006-4870691747989846.jpeg | Bin 2974185 -> 0 bytes
+ .../hotels/hotels-1739122232033-1256868672391338.jpeg | Bin 2621326 -> 0 bytes
+ .../hotels/hotels-1739432175920-5494269299961336.jpeg | Bin 2748592 -> 0 bytes
+ .../hotels/hotels-1739432175993-5584593869016969.jpeg | Bin 1917169 -> 0 bytes
+ .../hotels/hotels-1739432176233-6299246583987248.jpeg | Bin 2107005 -> 0 bytes
+ .../hotels-1739432176315-22383984217716946.jpeg       | Bin 2144986 -> 0 bytes
+ .../rooms/rooms-1738606144619-523094070917816.png     | Bin 1624417 -> 0 bytes
+ .../rooms/rooms-1739030359044-369179847302906.jpeg    | Bin 1033781 -> 0 bytes
+ .../rooms/rooms-1739030525144-0190877966043852.jpeg   | Bin 2656120 -> 0 bytes
+ .../rooms/rooms-1739031057868-4849971711092378.jpeg   | Bin 2525244 -> 0 bytes
+ .../rooms/rooms-1739031122014-9351273289331277.jpeg   | Bin 2429994 -> 0 bytes
+ .../rooms/rooms-1739031122070-045351218810863125.jpeg | Bin 2541342 -> 0 bytes
+ .../rooms/rooms-1739031205529-5372493946114205.jpeg   | Bin 2719631 -> 0 bytes
+ .../rooms/rooms-1739031337873-6205937887485402.jpeg   | Bin 2107005 -> 0 bytes
+ .../rooms/rooms-1739031365053-29833029506411.jpeg     | Bin 2107005 -> 0 bytes
+ .../rooms/rooms-1739106308625-6206782796634422.jpeg   | Bin 1842966 -> 0 bytes
+ .../rooms/rooms-1739106337100-2283623167336486.jpeg   | Bin 2525244 -> 0 bytes
+ .../rooms/rooms-1739106364701-6113957427824792.jpeg   | Bin 2525244 -> 0 bytes
+ .../rooms/rooms-1739106577651-45686302428151304.jpeg  | Bin 2525244 -> 0 bytes
+ .../rooms/rooms-1739106592862-19480882290757684.jpeg  | Bin 2525244 -> 0 bytes
+ .../rooms/rooms-1739122933837-5731430008798144.jpeg   | Bin 1033781 -> 0 bytes
+ .../rooms/rooms-1739122933845-05438759462392517.jpeg  | Bin 2656120 -> 0 bytes
+ .../rooms/rooms-1739123107380-036166141783319006.jpeg | Bin 1033781 -> 0 bytes
+ .../rooms/rooms-1739123107384-1842127049001565.jpeg   | Bin 2656120 -> 0 bytes
+ .../rooms/rooms-1739123126755-584519231593057.jpeg    | Bin 1033781 -> 0 bytes
+ .../rooms/rooms-1739123126768-4613791464784198.jpeg   | Bin 2656120 -> 0 bytes
+ .../rooms/rooms-1739123423667-5558059727604947.jpeg   | Bin 2429994 -> 0 bytes
+ .../rooms/rooms-1739123423752-9414945884201085.jpeg   | Bin 2525244 -> 0 bytes
+ .../rooms/rooms-1739123680042-2608546305198669.jpeg   | Bin 2541342 -> 0 bytes
+ .../rooms/rooms-1739123680053-6755511905978553.jpeg   | Bin 2719631 -> 0 bytes
+ .../rooms/rooms-1739124614821-4410259420626055.jpeg   | Bin 2525244 -> 0 bytes
+ .../rooms/rooms-1739124614851-5101446243928449.jpeg   | Bin 1917169 -> 0 bytes
+ .../rooms/rooms-1739124614867-7646440219385977.jpeg   | Bin 2144986 -> 0 bytes
+ .../rooms/rooms-1739124760350-5663659357707642.jpeg   | Bin 1395431 -> 0 bytes
+ .../rooms/rooms-1739124760367-4284340440101315.jpeg   | Bin 2439650 -> 0 bytes
+ .../rooms/rooms-1739124760394-9599396411824899.jpeg   | Bin 2442412 -> 0 bytes
+ .../rooms/rooms-1739124775501-2935046940985113.jpeg   | Bin 1395431 -> 0 bytes
+ .../rooms/rooms-1739124775514-824687425677203.jpeg    | Bin 2439650 -> 0 bytes
+ .../rooms/rooms-1739124775547-3719952838766323.jpeg   | Bin 2442412 -> 0 bytes
+ .../rooms/rooms-1739124946666-19440147182046497.jpeg  | Bin 1526253 -> 0 bytes
+ .../rooms/rooms-1739124946675-5194680588405367.jpeg   | Bin 2442412 -> 0 bytes
+ .../rooms/rooms-1739124946689-9801850690612535.jpeg   | Bin 2541342 -> 0 bytes
+ .../rooms/rooms-1739125110159-561268718769828.jpeg    | Bin 2429994 -> 0 bytes
+ .../rooms/rooms-1739125110180-25430297491677867.jpeg  | Bin 2656120 -> 0 bytes
+ .../rooms/rooms-1739125200598-7290236637204308.jpeg   | Bin 1917169 -> 0 bytes
+ .../rooms/rooms-1739125205753-04661403973022993.jpeg  | Bin 1917169 -> 0 bytes
+ .../rooms-1739125292089-0019253576913078607.jpeg      | Bin 1917169 -> 0 bytes
+ .../rooms/rooms-1739125424525-35021259437715235.jpeg  | Bin 2429994 -> 0 bytes
+ .../rooms/rooms-1739125519370-2508365240959649.jpeg   | Bin 2429994 -> 0 bytes
+ 93 files changed, 1 deletion(-)
+[1;33m[*][0m DRY RUN - Review diff in /tmp/security-cleanup-20260901_180435/bahirdar_hotels_room_reservation_backend_api
+
+[0;34m[*][0m Processing: bahirdar_hotels_room_reservation_frontend
+[1;33m[*][0m Scanning bahirdar_hotels_room_reservation_frontend...
+[0;32m[+][0m Changes detected in bahirdar_hotels_room_reservation_frontend
+ public/icons/customers.png            | Bin 98652 -> 0 bytes
+ public/screenshots/booking-detail.png | Bin 937796 -> 0 bytes
+ public/screenshots/hotel-detail.png   | Bin 1704591 -> 0 bytes
+ public/screenshots/landing-page.png   | Bin 2763780 -> 0 bytes
+ 4 files changed, 0 insertions(+), 0 deletions(-)
+[1;33m[*][0m DRY RUN - Review diff in /tmp/security-cleanup-20260901_180435/bahirdar_hotels_room_reservation_frontend
+
+[0;34m[*][0m Processing: adrp-discuss
+[1;33m[*][0m Scanning adrp-discuss...
+[1;33m[*][0m No malicious code found in adrp-discuss
+
+[0;34m[*][0m Processing: ai-website-ui-clone
+[1;33m[*][0m Scanning ai-website-ui-clone...
+[1;33m[*][0m No malicious code found in ai-website-ui-clone
+
+[0;34m[*][0m Processing: brainwave
+[1;33m[*][0m Scanning brainwave...
+[1;33m[*][0m No malicious code found in brainwave
+
+[0;34m[*][0m Processing: car-insta-firebase
+[1;33m[*][0m Scanning car-insta-firebase...
+[1;33m[*][0m No malicious code found in car-insta-firebase
+
+[0;34m[*][0m Processing: carbuff-nextjs
+[1;33m[*][0m Scanning carbuff-nextjs...
+[1;33m[*][0m No malicious code found in carbuff-nextjs
+
+[0;34m[*][0m Processing: cellvortex
+[1;33m[*][0m Scanning cellvortex...
+[1;33m[*][0m No malicious code found in cellvortex
+
+[0;34m[*][0m Processing: clean-architecture-nestJS
+[1;33m[*][0m Scanning clean-architecture-nestJS...
+[0;32m[+][0m Changes detected in clean-architecture-nestJS
+ public/fonts/fa-solid-400.woff2 | 1 -
+ 1 file changed, 1 deletion(-)
+[1;33m[*][0m DRY RUN - Review diff in /tmp/security-cleanup-20260901_180435/clean-architecture-nestJS
+
+[0;34m[*][0m Processing: customEd
+[1;33m[*][0m Scanning customEd...
+[1;33m[*][0m No malicious code found in customEd
+
+[0;34m[*][0m Processing: headline-news-page
+[1;33m[*][0m Scanning headline-news-page...
+[0;32m[+][0m Changes detected in headline-news-page
+ public/demo/demo2.jpg | Bin 432063 -> 0 bytes
+ 1 file changed, 0 insertions(+), 0 deletions(-)
+[1;33m[*][0m DRY RUN - Review diff in /tmp/security-cleanup-20260901_180435/headline-news-page
+
+[0;34m[*][0m Processing: mealer
+[1;33m[*][0m Scanning mealer...
+[1;33m[*][0m No malicious code found in mealer
+
+[0;34m[*][0m Processing: mikander
+[1;33m[*][0m Scanning mikander...
+[1;33m[*][0m No malicious code found in mikander
+
+[0;34m[*][0m Processing: mymoment
+[1;33m[*][0m Scanning mymoment...
+[1;33m[*][0m No malicious code found in mymoment
+
+[0;34m[*][0m Processing: nextjs-commerce
+[1;33m[*][0m Scanning nextjs-commerce...
+[1;33m[*][0m No malicious code found in nextjs-commerce
+
+[0;34m[*][0m Processing: nextjs-dashboard
+[1;33m[*][0m Scanning nextjs-dashboard...
+[1;33m[*][0m No malicious code found in nextjs-dashboard
+
+[0;34m[*][0m Processing: OAuth-boilerplate
+[1;33m[*][0m Scanning OAuth-boilerplate...
+[1;33m[*][0m No malicious code found in OAuth-boilerplate
+
+[0;34m[*][0m Processing: receipt-ocr
+[1;33m[*][0m Scanning receipt-ocr...
+[1;33m[*][0m No malicious code found in receipt-ocr
+
+[0;34m[*][0m Processing: regalcanvas
+[1;33m[*][0m Scanning regalcanvas...
+[1;33m[*][0m No malicious code found in regalcanvas
+
+[0;34m[*][0m Processing: solomon-muhye
+[1;33m[*][0m Scanning solomon-muhye...
+[0;32m[+][0m Changes detected in solomon-muhye
+ assets/brainwave.png | Bin 1493809 -> 0 bytes
+ 1 file changed, 0 insertions(+), 0 deletions(-)
+[1;33m[*][0m DRY RUN - Review diff in /tmp/security-cleanup-20260901_180435/solomon-muhye
+
+[0;34m[*][0m Processing: vanlife
+[1;33m[*][0m Scanning vanlife...
+[1;33m[*][0m No malicious code found in vanlife
+
+[0;34m========================================[0m
+[0;34mCleanup Summary[0m
+[0;34m========================================[0m
+Target repositories: 27
+Repositories with changes: 8
+Review branches pushed: 0
+Failed: 2
+Skipped (no changes): 17
+Log file: /home/runner/work/security-cleanup-automation/security-cleanup-automation/cleanup_20260901_180435.log
+
+[1;33m⚠️  DRY RUN MODE - No remote branches were pushed[0m
+[1;33mTo apply changes safely, re-run with --no-dry-run and an explicit repo list or --all[0m

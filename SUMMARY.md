@@ -75,11 +75,11 @@ cd security-cleanup-automation
 chmod +x batch-cleanup.sh
 
 # Step 3: Run DRY RUN first (no changes)
-./batch-cleanup.sh
+./batch-cleanup.sh --repos traceOn,auth
 # Review cleanup_YYYYMMDD_HHMMSS.log
 
 # Step 4: When ready, apply cleanup
-./batch-cleanup.sh --no-dry-run
+GH_TOKEN=YOUR_PAT ./batch-cleanup.sh --repos traceOn,auth --no-dry-run
 # Monitors and logs all operations
 ```
 
@@ -103,7 +103,7 @@ git diff
 # Commit and push
 git add -A
 git commit -m "security: remove malicious code from supply chain attack"
-git push origin main
+git push origin HEAD
 ```
 
 **Pros**: Full control, manual review each step, safest option  
@@ -365,10 +365,10 @@ Execution time: 3 hours 42 minutes
 - [ ] Completed immediate security actions above
 
 ### During Cleanup:
-- [ ] Run dry-run: `./batch-cleanup.sh`
+- [ ] Run dry-run: `./batch-cleanup.sh --repos traceOn,auth`
 - [ ] Review cleanup log
 - [ ] Verify no legitimate code will be removed
-- [ ] Run cleanup: `./batch-cleanup.sh --no-dry-run`
+- [ ] Run cleanup: `GH_TOKEN=YOUR_PAT ./batch-cleanup.sh --repos traceOn,auth --no-dry-run`
 - [ ] Monitor progress
 
 ### After Cleanup:
@@ -436,9 +436,9 @@ Your complete security cleanup system is ready to deploy.
 **Next Step**: 
 ```bash
 cd security-cleanup-automation
-./batch-cleanup.sh  # Dry run
+./batch-cleanup.sh --repos traceOn,auth  # Dry run
 # Review log, then:
-./batch-cleanup.sh --no-dry-run  # Apply cleanup
+GH_TOKEN=YOUR_PAT ./batch-cleanup.sh --repos traceOn,auth --no-dry-run  # Push review branches
 ```
 
 **Estimated Total Time**: 4-5 hours (mostly automated)

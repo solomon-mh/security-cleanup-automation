@@ -51,20 +51,27 @@ Comprehensive Python script that:
 python3 cleanup.py /path/to/repo
 ```
 
-### 2. **deep-cleanup-workflow.yml** - GitHub Actions Automation
-Automated workflow that:
-- Processes 26 major repositories in parallel
-- Runs 5-phase deep cleanup
-- Creates PRs for review
-- Generates detailed reports
-- Supports dry-run mode
+### 2. **.github/workflows/batch-cleanup-all-repos.yml** - Batch GitHub Actions Runner
+Central workflow that:
+- Runs `batch-cleanup.sh` from this repository
+- Requires an explicit repo list (or `all`) when dispatched
+- Defaults to `dry_run=true`
+- Uploads cleanup logs and JSON reports as workflow artifacts
+- Uses a `CLEANUP_REPO_TOKEN` secret for cross-repository access in apply mode
 
 **How to use:**
-1. Copy `deep-cleanup-workflow.yml` to `.github/workflows/` in each repo
+1. In this repository, create a `CLEANUP_REPO_TOKEN` secret with access to the target repos
 2. Go to Actions tab
-3. Trigger "Deep Security Cleanup" workflow
-4. Set `dry_run=true` first to preview changes
-5. Set `dry_run=false` to apply changes
+3. Trigger **Batch Security Cleanup**
+4. Set `repos` to a comma-separated list (recommended) or `all`
+5. Run once with `dry_run=true`, then re-run with `dry_run=false` to push review branches
+
+### 3. **deep-cleanup-workflow.yml** - Per-Repository Workflow Template
+Template workflow that:
+- Downloads `cleanup.py` from this repository
+- Cleans the checked-out repository once
+- Creates a PR instead of pushing directly to the default branch
+- Supports dry-run mode for safe review
 
 ---
 
@@ -150,7 +157,7 @@ git diff
 # Commit and push
 git add -A
 git commit -m "security: remove malicious code from supply chain attack"
-git push origin main
+git push origin HEAD
 ```
 
 ### Option 2: GitHub Actions Workflow (Automated)
@@ -170,34 +177,34 @@ git push
    - Click "Run workflow"
    - Set `dry_run=true` first
    - Review the scan results
-   - Re-run with `dry_run=false` to apply
+   - Re-run with `dry_run=false` to open a cleanup PR
 
 ### Option 3: Batch Cleanup Script
 
+The batch script is the safest central entrypoint for multiple repositories because it defaults to dry-run and can limit the run to an explicit repo list.
+
 ```bash
-#!/bin/bash
-# cleanup-all.sh - Cleanup all repositories
+# Preview only for two repositories
+./batch-cleanup.sh --repos traceOn,auth
 
-REPOS=(
-  "traceOn"
-  "traceon-loadrunner"
-  "fetanfews-server"
-  "Afalagi"
-  "auth"
-)
+# Preview the full built-in list
+./batch-cleanup.sh --all
 
-for repo in "${REPOS[@]}"; do
-  echo "[*] Cleaning $repo..."
-  git clone https://github.com/solomon-mh/$repo.git
-  cd $repo
-  wget https://raw.githubusercontent.com/solomon-mh/security-cleanup-automation/main/cleanup.py
-  python3 cleanup.py .
-  git add -A
-  git commit -m "security: remove malicious code" || echo "No changes"
-  git push
-  cd ..
-done
+# Apply changes safely by pushing review branches
+GH_TOKEN=YOUR_PAT ./batch-cleanup.sh --repos traceOn,auth --no-dry-run
 ```
+
+When `--no-dry-run` is used, the script pushes review branches named `security-cleanup-...` instead of pushing straight to `main`.
+
+### Option 4: Batch GitHub Actions Workflow
+
+Use the active workflow already included in this repository:
+
+1. Add a `CLEANUP_REPO_TOKEN` secret in this repo with access to the target repositories
+2. Open **Actions** → **Batch Security Cleanup**
+3. Enter `repos` as a comma-separated list (recommended) or `all`
+4. Leave `dry_run=true` for the first run
+5. Re-run with `dry_run=false` to push review branches for any changed repos
 
 ---
 
@@ -256,7 +263,7 @@ After cleanup, verify:
 
 ---
 
-## 📋 Affected Repositories (26 in first batch)
+## 📋 Affected Repositories (27 in first batch)
 
 Priority 1 (Most Critical):
 - [ ] traceOn

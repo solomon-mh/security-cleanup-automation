@@ -1,0 +1,30 @@
+[0;34m========================================[0m
+[0;34mSecurity Cleanup - Batch Script[0m
+[0;34m========================================[0m
+
+[1;33mConfiguration:[0m
+  Target repositories: 2
+  Dry run mode: true
+  Workspace: /tmp/security-cleanup-20260901_180701
+  Log file: /home/runner/work/security-cleanup-automation/security-cleanup-automation/cleanup_20260901_180701.log
+
+[0;34m[*][0m Processing: traceOn
+[0;31m[!][0m Failed to clone traceOn. If this repo is private, set GH_TOKEN or GITHUB_TOKEN (PAT with access to target repos).
+
+[0;34m[*][0m Processing: Afalagi
+[0;31m[!][0m Failed to clone Afalagi. If this repo is private, set GH_TOKEN or GITHUB_TOKEN (PAT with access to target repos).
+
+[0;34m========================================[0m
+[0;34mCleanup Summary[0m
+[0;34m========================================[0m
+Target repositories: 2
+Repositories with changes: 0
+Review branches pushed: 0
+Failed: 2
+Skipped (no changes): 0
+Failed repositories: traceOn,Afalagi
+Log file: /home/runner/work/security-cleanup-automation/security-cleanup-automation/cleanup_20260901_180701.log
+
+[1;33m⚠️  DRY RUN MODE - No remote branches were pushed[0m
+[1;33mTo apply changes safely, re-run with --no-dry-run and an explicit repo list or --all[0m
+[1;33m⚠️  Dry run completed with failures. Review failed repositories in the summary above.[0m

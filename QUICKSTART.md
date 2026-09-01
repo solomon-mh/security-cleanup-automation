@@ -14,11 +14,14 @@ chmod +x batch-cleanup.sh
 
 ### Step 2: Dry Run (2 min)
 ```bash
-# Run cleanup in DRY RUN mode (no changes made)
-./batch-cleanup.sh
+# Run cleanup in DRY RUN mode for an explicit repo list
+./batch-cleanup.sh --repos traceOn,auth
+
+# Or preview the full built-in batch list
+./batch-cleanup.sh --all
 
 # This will:
-# ✅ Clone all 27 repos
+# ✅ Clone only the repos you selected
 # ✅ Scan for malicious patterns
 # ✅ Show what WOULD be removed
 # ✅ Create detailed log file
@@ -40,8 +43,8 @@ cat cleanup_*.log
 ## 🚀 DEPLOY CLEANUP (When Ready)
 
 ```bash
-# Apply cleanup with actual commits and pushes
-./batch-cleanup.sh --no-dry-run
+# Apply cleanup by pushing review branches
+GH_TOKEN=YOUR_PAT ./batch-cleanup.sh --repos traceOn,auth --no-dry-run
 
 # Monitor progress:
 tail -f cleanup_*.log
@@ -53,7 +56,7 @@ tail -f cleanup_*.log
 ✅ Removes obfuscated code  
 ✅ Cleans .gitignore  
 ✅ Removes suspicious fonts  
-✅ Commits and pushes changes  
+✅ Pushes review branches instead of direct-to-main changes  
 ✅ Generates detailed reports  
 
 ---

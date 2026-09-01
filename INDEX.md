@@ -54,7 +54,7 @@
 | File | Purpose | Usage |
 |------|---------|-------|
 | **cleanup.py** | Malicious code detection & removal | `python3 cleanup.py /path/to/repo` |
-| **batch-cleanup.sh** | Batch process all 27 repos | `./batch-cleanup.sh [--no-dry-run]` |
+| **batch-cleanup.sh** | Batch process repositories safely | `./batch-cleanup.sh --repos repo1,repo2` |
 | **deep-cleanup-workflow.yml** | GitHub Actions automation | Copy to `.github/workflows/` |
 
 ### 📚 DOCUMENTATION
@@ -78,10 +78,10 @@
 chmod +x batch-cleanup.sh
 
 # Dry run (review findings)
-./batch-cleanup.sh
+./batch-cleanup.sh --repos traceOn,auth
 
 # Apply cleanup
-./batch-cleanup.sh --no-dry-run
+GH_TOKEN=YOUR_PAT ./batch-cleanup.sh --repos traceOn,auth --no-dry-run
 ```
 
 **Best for**: All 27 repos at once  
@@ -95,7 +95,7 @@ cd /path/to/repo
 wget https://raw.githubusercontent.com/solomon-mh/security-cleanup-automation/main/cleanup.py
 python3 cleanup.py .
 git diff  # Review
-git add -A && git commit -m "security: cleanup" && git push
+git add -A && git commit -m "security: cleanup" && git push origin HEAD
 ```
 
 **Best for**: Individual repo verification  
@@ -243,13 +243,13 @@ cat QUICKSTART.md
 chmod +x batch-cleanup.sh
 
 # 4. Run dry-run
-./batch-cleanup.sh
+./batch-cleanup.sh --repos traceOn,auth
 
 # 5. Review log
 cat cleanup_*.log
 
 # 6. Run actual cleanup (when ready)
-./batch-cleanup.sh --no-dry-run
+GH_TOKEN=YOUR_PAT ./batch-cleanup.sh --repos traceOn,auth --no-dry-run
 ```
 
 ### Complete Understanding Path (1 hour)

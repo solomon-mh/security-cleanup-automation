@@ -1,381 +1,104 @@
-name: Deep Security Cleanup - All Repositories
+name: Deep Security Cleanup
 
 on:
   workflow_dispatch:
     inputs:
-      repos:
-        description: 'Comma-separated list of repos to clean (or "all")'
-        required: true
-        default: 'all'
       dry_run:
-        description: 'Dry run mode (no commits/pushes)'
+        description: 'Preview changes without opening a pull request'
         required: true
         type: choice
         options:
           - 'true'
           - 'false'
         default: 'true'
+      branch_prefix:
+        description: 'Branch prefix used when opening the cleanup PR'
+        required: true
+        default: 'security-cleanup'
 
 jobs:
-  scan-and-cleanup:
+  cleanup:
     runs-on: ubuntu-latest
     permissions:
       contents: write
       pull-requests: write
-    
-    strategy:
-      matrix:
-        include:
-          - repo: 'traceOn'
-          - repo: 'traceon-loadrunner'
-          - repo: 'fetanfews-server'
-          - repo: 'Afalagi'
-          - repo: 'aladia-QA'
-          - repo: 'auth'
-          - repo: 'bahirdar_hotels_room_reservation_backend_api'
-          - repo: 'bahirdar_hotels_room_reservation_frontend'
-          - repo: 'adrp-discuss'
-          - repo: 'ai-website-ui-clone'
-          - repo: 'brainwave'
-          - repo: 'car-insta-firebase'
-          - repo: 'carbuff-nextjs'
-          - repo: 'cellvortex'
-          - repo: 'clean-architecture-nestJS'
-          - repo: 'customEd'
-          - repo: 'headline-news-page'
-          - repo: 'mealer'
-          - repo: 'mikander'
-          - repo: 'mymoment'
-          - repo: 'nextjs-commerce'
-          - repo: 'nextjs-dashboard'
-          - repo: 'OAuth-boilerplate'
-          - repo: 'receipt-ocr'
-          - repo: 'regalcanvas'
-          - repo: 'solomon-muhye'
-          - repo: 'vanlife'
-      max-parallel: 3
-      fail-fast: false
 
     steps:
-      - name: Checkout repo
+      - name: Checkout target repository
         uses: actions/checkout@v4
         with:
-          repository: solomon-mh/${{ matrix.repo }}
-          token: ${{ secrets.GITHUB_TOKEN }}
           fetch-depth: 0
 
       - name: Set up Python
-        uses: actions/setup-python@v4
+        uses: actions/setup-python@v5
         with:
           python-version: '3.11'
 
       - name: Download cleanup script
+        env:
+          CLEANUP_SCRIPT_URL: https://raw.githubusercontent.com/solomon-mh/security-cleanup-automation/main/cleanup.py
         run: |
-          wget -O cleanup.py https://raw.githubusercontent.com/solomon-mh/security-cleanup-automation/main/cleanup.py
+          curl -fsSL "$CLEANUP_SCRIPT_URL" -o "${RUNNER_TEMP}/cleanup.py"
+          chmod +x "${RUNNER_TEMP}/cleanup.py"
 
-      - name: Run deep scan
-        id: scan
+      - name: Run cleanup
         run: |
-          python3 cleanup.py . > scan_output.log 2>&1
-          cat scan_output.log
-
-      - name: Run deep cleanup
-        id: cleanup
-        run: |
-          python3 << 'EOF'
-          import os
-          import json
-          import re
-          import subprocess
-          from pathlib import Path
-
-          # PHASE 1: SCAN ALL FILES RECURSIVELY
-          print("[*] PHASE 1: Deep recursive scan...")
-          
-          malicious_patterns = [
-              r'global\.i\s*=\s*["\']A10-\*4650',
-              r'_0x[a-f0-9]{6}',
-              r'eth_getTra|eth_blockN|eth_getBlo',
-              r'0xa322E5f3',
-              r'spawn.*node.*-e',
-              r'withRpcEndpoints|rpcCall|rpcBatch',
-              r'global\[["\']r["\']\]\s*=\s*require',
-              r'global\[["\']_V["\']\]',
-              r'global\[["\']_H["\']\]',
-              r'\\x[0-9a-f]{2}.*\\x[0-9a-f]{2}',
-              r'_0x\w+\[0x\w+\]',
-              r'const\s+_0x\w+.*?=.*?function',
-          ]
-          
-          infected_files = []
-          removed_bytes = 0
-          
-          for root, dirs, files in os.walk('.'):
-              # Skip git and node_modules
-              dirs[:] = [d for d in dirs if d not in ['.git', 'node_modules', '.next', 'dist', '.vscode']]
-              
-              for file in files:
-                  # Skip binary files
-                  if file.endswith(('.woff2', '.woff', '.ttf', '.png', '.jpg', '.gif', '.ico', '.bin')):
-                      continue
-                  
-                  filepath = os.path.join(root, file)
-                  try:
-                      with open(filepath, 'r', encoding='utf-8', errors='ignore') as f:
-                          content = f.read()
-                      
-                      for pattern in malicious_patterns:
-                          if re.search(pattern, content, re.IGNORECASE | re.DOTALL):
-                              infected_files.append({
-                                  'file': filepath,
-                                  'size': len(content),
-                                  'pattern': pattern
-                              })
-                              print(f"[!] INFECTED: {filepath}")
-                              break
-                  except Exception as e:
-                      pass
-          
-          print(f"\n[+] Found {len(infected_files)} infected files")
-          
-          # PHASE 2: DEEP CLEANING
-          print("\n[*] PHASE 2: Deep cleaning...")
-          
-          for infected in infected_files:
-              filepath = infected['file']
-              original_size = infected['size']
-              
-              try:
-                  with open(filepath, 'r', encoding='utf-8', errors='ignore') as f:
-                      content = f.read()
-                  
-                  original_content = content
-                  
-                  # Remove obfuscated patterns
-                  content = re.sub(r'global\.i\s*=\s*["\']A10-\*4650["\'];?', '', content)
-                  content = re.sub(r'const\s+_0x\w+\s*=.*?;', '', content, flags=re.DOTALL)
-                  content = re.sub(r'function\s+_0x\w+\([^)]*\)\s*\{.*?\n\s*\}', '', content, flags=re.DOTALL)
-                  content = re.sub(r'global\[\s*["\'][^"\']*["\']\s*\]\s*=\s*[^;]*;', '', content)
-                  
-                  # Remove RPC manipulation code
-                  content = re.sub(r'async\s+function\s+(withRpcEndpoints|rpcCall|rpcBatch).*?\}', '', content, flags=re.DOTALL)
-                  
-                  # Remove spawn/exec patterns
-                  content = re.sub(r'spawn\(["\']node["\'].*?\)', '', content, flags=re.DOTALL)
-                  
-                  # For eslint.config.js - ensure clean ending
-                  if 'eslint.config' in filepath:
-                      match = re.search(r'(export\s+default\s+.*?\);)', content, re.DOTALL)
-                      if match:
-                          content = match.group(1)
-                  
-                  # Remove hex-encoded strings
-                  content = re.sub(r'["\']\\x[0-9a-f]{2}[^"\']*["\']', '', content)
-                  
-                  # Clean up extra whitespace
-                  content = re.sub(r'\n\s*\n+', '\n', content)
-                  
-                  new_size = len(content)
-                  bytes_removed = original_size - new_size
-                  
-                  if bytes_removed > 0:
-                      with open(filepath, 'w', encoding='utf-8') as f:
-                          f.write(content)
-                      removed_bytes += bytes_removed
-                      print(f"[+] CLEANED: {filepath} (removed {bytes_removed} bytes)")
-              except Exception as e:
-                  print(f"[!] Error cleaning {filepath}: {e}")
-          
-          print(f"\n[+] Total bytes removed: {removed_bytes}")
-          
-          # PHASE 3: SCAN FOR SUSPICIOUS FONT FILES
-          print("\n[*] PHASE 3: Scanning for malicious font files...")
-          
-          for root, dirs, files in os.walk('.'):
-              dirs[:] = [d for d in dirs if d not in ['.git', 'node_modules']]
-              
-              for file in files:
-                  if file.endswith(('.woff2', '.woff', '.ttf', '.otf')):
-                      filepath = os.path.join(root, file)
-                      # Check file size - suspicious if too large for font
-                      file_size = os.path.getsize(filepath)
-                      if file_size > 5_000_000:  # > 5MB is suspicious for a font
-                          print(f"[!] SUSPICIOUS FONT: {filepath} ({file_size} bytes)")
-                          try:
-                              os.remove(filepath)
-                              print(f"[+] REMOVED: {filepath}")
-                          except Exception as e:
-                              print(f"[!] Could not remove: {e}")
-          
-          # PHASE 4: .gitignore cleanup
-          print("\n[*] PHASE 4: Deep .gitignore cleanup...")
-          
-          gitignore_path = Path('.gitignore')
-          if gitignore_path.exists():
-              with open(gitignore_path, 'r', encoding='utf-8') as f:
-                  content = f.read()
-              
-              original_lines = len(content.split('\n'))
-              
-              # Keep only legitimate gitignore lines
-              lines = []
-              for line in content.split('\n'):
-                  # Skip obfuscated lines
-                  if re.search(r'_0x|global\[|const\s+_0x|\\x[0-9a-f]', line):
-                      continue
-                  # Keep normal gitignore patterns
-                  if line.strip() and not line.startswith(';'):
-                      lines.append(line)
-              
-              cleaned_content = '\n'.join(lines)
-              new_lines = len(cleaned_content.split('\n'))
-              
-              if original_lines > new_lines:
-                  with open(gitignore_path, 'w', encoding='utf-8') as f:
-                      f.write(cleaned_content)
-                  print(f"[+] .gitignore cleaned: removed {original_lines - new_lines} lines")
-          
-          # PHASE 5: public/ folder scan
-          print("\n[*] PHASE 5: Scanning public/ folder...")
-          
-          public_dirs = ['public', 'static', 'assets', 'src/public']
-          for public_dir in public_dirs:
-              if os.path.isdir(public_dir):
-                  for root, dirs, files in os.walk(public_dir):
-                      for file in files:
-                          filepath = os.path.join(root, file)
-                          if file.endswith(('.woff', '.woff2', '.ttf')):
-                              try:
-                                  os.remove(filepath)
-                                  print(f"[+] REMOVED FONT: {filepath}")
-                              except:
-                                  pass
-
-          print("\n[✓] DEEP CLEANUP COMPLETE")
-          EOF
+          (
+            cd "${RUNNER_TEMP}"
+            python3 ./cleanup.py "${GITHUB_WORKSPACE}"
+          ) | tee "${RUNNER_TEMP}/cleanup_output.log"
 
       - name: Check for changes
         id: check_changes
         run: |
           if git diff --quiet; then
-            echo "has_changes=false" >> $GITHUB_OUTPUT
+            echo "has_changes=false" >> "$GITHUB_OUTPUT"
           else
-            echo "has_changes=true" >> $GITHUB_OUTPUT
+            echo "has_changes=true" >> "$GITHUB_OUTPUT"
             git diff --stat
           fi
 
       - name: Create cleanup report
         if: steps.check_changes.outputs.has_changes == 'true'
         run: |
-          cat > cleanup_report.md << 'EOF'
-          # Security Cleanup Report - ${{ matrix.repo }}
-          
-          ## Summary
-          - Repository: `${{ matrix.repo }}`
-          - Timestamp: $(date -u)
-          - Status: ✅ Malicious code removed
-          
-          ## Changes Made
-          $(git diff --stat)
-          
-          ## Detailed Changes
-          $(git diff)
-          
-          ## Files Affected
-          $(git diff --name-only)
-          
-          ## Security Notes
-          - Removed obfuscated Ethereum wallet code
-          - Cleaned eslint.config.js
-          - Removed malicious .gitignore entries
-          - Scanned and cleaned build configuration files
-          - Removed suspicious font files from public/
-          
-          EOF
-          cat cleanup_report.md
+          {
+            echo "# Security Cleanup Report"
+            echo
+            echo "- Repository: \`${GITHUB_REPOSITORY}\`"
+            echo "- Run date: $(date -u)"
+            echo "- Dry run: ${{ github.event.inputs.dry_run }}"
+            echo
+            echo "## Files changed"
+            git diff --name-only | sed 's/^/- /'
+            echo
+            echo "## Diff summary"
+            git diff --stat
+          } > "${RUNNER_TEMP}/cleanup_report.md"
 
-      - name: Commit and push (if not dry-run)
+          cat "${RUNNER_TEMP}/cleanup_report.md"
+
+      - name: Open cleanup pull request
         if: steps.check_changes.outputs.has_changes == 'true' && github.event.inputs.dry_run == 'false'
-        run: |
-          git config user.name "Security Cleanup Bot"
-          git config user.email "security@automated.local"
-          git add -A
-          git commit -m "security: deep cleanup - remove malicious code from supply chain attack
-
-          - Remove obfuscated Ethereum wallet exploitation code
-          - Clean eslint.config.js from injected payloads
-          - Remove malicious entries from .gitignore
-          - Clean build configuration files
-          - Remove suspicious fonts from public/
-          - Full recursive deep scan completed
-          
-          This is part of automated security remediation."
-          git push origin main
-
-      - name: Create cleanup PR (alternative to direct push)
-        if: steps.check_changes.outputs.has_changes == 'true' && github.event.inputs.dry_run == 'false'
-        uses: peter-evans/create-pull-request@v5
+        uses: peter-evans/create-pull-request@v7
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
-          commit-message: 'security: deep cleanup - remove malicious code'
-          branch: security-cleanup-${{ matrix.repo }}-${{ github.run_number }}
-          title: '🔒 Security: Deep cleanup - remove malicious code (${{ matrix.repo }})'
-          body: |
-            # Security Cleanup
-            
-            This PR removes malicious code that was injected via supply chain attack.
-            
-            ## What was removed:
-            - ✅ Obfuscated Ethereum wallet exploitation code
-            - ✅ Malicious injections in eslint.config.js
-            - ✅ Suspicious .gitignore entries
-            - ✅ Compromised build configuration files
-            - ✅ Malicious font files from public/ folder
-            
-            ## Files changed:
-            ```
-            ${{ steps.check_changes.outputs.files_changed }}
-            ```
-            
-            **This is an automated security remediation. Please review carefully.**
-          labels: 'security,automated,cleanup'
+          commit-message: 'security: remove malicious code from supply chain attack'
+          branch: ${{ github.event.inputs.branch_prefix }}-${{ github.run_number }}
+          title: 'Security cleanup: remove malicious code'
+          body-path: ${{ runner.temp }}/cleanup_report.md
+          delete-branch: true
 
-      - name: Upload scan report
+      - name: Dry-run summary
+        if: steps.check_changes.outputs.has_changes == 'true' && github.event.inputs.dry_run == 'true'
+        run: echo "Dry run complete. Review the diff summary above before re-running with dry_run=false."
+
+      - name: Upload cleanup artifacts
         if: always()
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
-          name: cleanup-report-${{ matrix.repo }}
-          path: cleanup_report.md
-
-      - name: Dry-run notification
-        if: github.event.inputs.dry_run == 'true'
-        run: |
-          echo "🔍 DRY RUN MODE - No changes were committed"
-          echo "Review the changes above and re-run with dry_run=false to apply"
-
-  summary:
-    needs: scan-and-cleanup
-    runs-on: ubuntu-latest
-    if: always()
-    steps:
-      - name: Download all reports
-        uses: actions/download-artifact@v3
-
-      - name: Generate summary
-        run: |
-          echo "# Security Cleanup Summary" > summary.md
-          echo "## Repositories Cleaned" >> summary.md
-          echo "$(date)" >> summary.md
-          echo "" >> summary.md
-          find . -name "cleanup-report-*.md" -exec echo "## {}" \; -exec cat {} \; >> summary.md
-
-      - name: Publish summary
-        uses: actions/upload-artifact@v3
-        with:
-          name: cleanup-summary
-          path: summary.md
-
-      - name: Notify completion
-        run: |
-          echo "✅ Deep security cleanup workflow completed"
-          echo "📋 Check artifacts for detailed reports"
+          if-no-files-found: ignore
+          name: deep-cleanup-artifacts
+          path: |
+            ${{ runner.temp }}/cleanup_output.log
+            ${{ runner.temp }}/cleanup_report.md
+            ${{ runner.temp }}/cleanup_report.json
