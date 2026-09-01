@@ -6,7 +6,6 @@ on:
       repos:
         description: 'Comma-separated repo names, or "all" to use the built-in batch list'
         required: true
-        default: ''
       dry_run:
         description: 'Preview changes only (recommended first run)'
         required: true
