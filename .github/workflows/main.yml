@@ -29,10 +29,14 @@ jobs:
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
-          pip install -r requirements.txt
+          if [ -f requirements.txt ]; then
+            pip install -r requirements.txt
+          else
+            echo "No requirements.txt found, skipping dependency installation"
+          fi
 
       - name: Run security cleanup
-        run: python main.py
+        run: python3 cleanup.py .
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
