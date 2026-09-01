@@ -335,7 +335,14 @@ log "Review branches pushed: $PUSHED_REPOS"
 log "Failed: $FAILED_REPOS"
 log "Skipped (no changes): $SKIPPED_REPOS"
 if ((FAILED_REPOS > 0)); then
-    log "Failed repositories: $(IFS=', '; printf '%s' "${FAILED_REPO_NAMES[*]}")"
+    failed_repos_display=""
+    for failed_repo in "${FAILED_REPO_NAMES[@]}"; do
+        if [[ -n "$failed_repos_display" ]]; then
+            failed_repos_display+=", "
+        fi
+        failed_repos_display+="$failed_repo"
+    done
+    log "Failed repositories: $failed_repos_display"
 fi
 log "Log file: $LOG_FILE_PATH"
 log ""
