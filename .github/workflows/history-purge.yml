@@ -36,13 +36,24 @@ concurrency:
 jobs:
   gate:
     runs-on: ubuntu-latest
+    outputs:
+      effective_dry_run: ${{ steps.mode.outputs.effective_dry_run }}
     steps:
-      - name: Real run needs explicit confirmation
-        if: ${{ inputs.dry_run == 'false' && inputs.confirm != 'REWRITE-HISTORY' }}
+      - name: Resolve execution mode
+        id: mode
         run: |
-          echo "::error::A real run (dry_run=false) requires confirm = REWRITE-HISTORY"
-          exit 1
-      - run: echo "gate passed (dry_run=${{ inputs.dry_run }})"
+          set -euo pipefail
+          confirm="$(printf '%s' "${{ inputs.confirm }}" | xargs)"
+          if [ "${{ inputs.dry_run }}" = "false" ] && [ "$confirm" = "REWRITE-HISTORY" ]; then
+            echo "effective_dry_run=false" >> "$GITHUB_OUTPUT"
+            echo "gate passed (dry_run=false; confirmation accepted)"
+          else
+            echo "effective_dry_run=true" >> "$GITHUB_OUTPUT"
+            if [ "${{ inputs.dry_run }}" = "false" ]; then
+              echo "::warning::confirm must be REWRITE-HISTORY for a real run; switching to dry_run=true"
+            fi
+            echo "gate passed (dry_run=true)"
+          fi
 
   purge:
     needs: gate
@@ -162,7 +173,7 @@ jobs:
           PY
 
       - name: Rewrite history - DRY RUN (analysis only)
-        if: steps.pick.outputs.run == 'true' && inputs.dry_run == 'true'
+        if: steps.pick.outputs.run == 'true' && needs.gate.outputs.effective_dry_run == 'true'
         working-directory: target
         run: |
           set -euo pipefail
@@ -179,7 +190,7 @@ jobs:
             echo "filtered stream size: $(wc -c < .git/filter-repo/fast-export.filtered) bytes" || true
 
       - name: Rewrite history and FORCE-PUSH
-        if: steps.pick.outputs.run == 'true' && inputs.dry_run == 'false'
+        if: steps.pick.outputs.run == 'true' && needs.gate.outputs.effective_dry_run == 'false'
         working-directory: target
         env:
           TOKEN: ${{ secrets.CLEANUP_TOKEN }}
@@ -221,7 +232,7 @@ jobs:
           echo "::notice::rewritten history force-pushed for ${{ matrix.repo }}"
 
       - name: Scan again (after)
-        if: steps.pick.outputs.run == 'true' && inputs.dry_run == 'false'
+        if: steps.pick.outputs.run == 'true' && needs.gate.outputs.effective_dry_run == 'false'
         working-directory: target
         run: python "$RUNNER_TEMP/purge/cleanup.py" --scan . | tee ../scan-after.log
 
@@ -250,7 +261,7 @@ jobs:
           {
             echo "# History purge summary"
             echo
-            echo "run: $(date -u)   dry_run=${{ inputs.dry_run }}   repos=${{ inputs.repos }}"
+            echo "run: $(date -u)   requested_dry_run=${{ inputs.dry_run }}   effective_dry_run=${{ needs.gate.outputs.effective_dry_run }}   repos=${{ inputs.repos }}"
             echo
             find reports -name 'scan-*.log' | sort | while read -r f; do
               echo "## $f"

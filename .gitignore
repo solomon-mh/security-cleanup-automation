@@ -1,4 +1,7 @@
 __pycache__/
 *.pyc
+temp_auto_push.bat
 *.bundle
 cleanup_report.json
+.gitignore
+branch_structure.json
