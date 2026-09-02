@@ -97,7 +97,7 @@ jobs:
         working-directory: target
         run: |
           set +e
-          RX='0xa322E5f3|A10-\*?4650|withRpcEndpoints|eth_getTra|eth_blockN|eth_getBlo|rpcCall|rpcBatch'
+          RX='0xa322E5f3|A10-\*?4650|withRpcEndpoints|eth_getTra|eth_blockN|eth_getBlo|rpcCall|rpcBatch|temp_auto_push|temp_interactive_push|branch_structure\.json'
           python "$RUNNER_TEMP/purge/cleanup.py" --scan . | tee ../scan-before.log
           {
             echo "# ${{ matrix.repo }} - indicators in history (before)"
@@ -153,10 +153,13 @@ jobs:
           set -euo pipefail
           git filter-repo --force --dry-run \
             --invert-paths \
-            --path temp_auto_push.bat \
-            --path temp_interactive_push.bat \
+            --path-glob 'temp_auto_push.*' \
+            --path-glob '*/temp_auto_push.*' \
+            --path-glob 'temp_interactive_push.*' \
+            --path-glob '*/temp_interactive_push.*' \
             --path branch_structure.json \
-            --path public/fonts/fa-solid-400.woff2 \
+            --path-glob '*/branch_structure.json' \
+            --path-glob '*fa-solid-400.woff2' \
             --blob-callback "$(cat "$RUNNER_TEMP/purge/callback.py")"
           echo
           echo "DRY RUN complete - nothing was pushed."
@@ -177,16 +180,19 @@ jobs:
 
           git filter-repo --force \
             --invert-paths \
-            --path temp_auto_push.bat \
-            --path temp_interactive_push.bat \
+            --path-glob 'temp_auto_push.*' \
+            --path-glob '*/temp_auto_push.*' \
+            --path-glob 'temp_interactive_push.*' \
+            --path-glob '*/temp_interactive_push.*' \
             --path branch_structure.json \
-            --path public/fonts/fa-solid-400.woff2 \
+            --path-glob '*/branch_structure.json' \
+            --path-glob '*fa-solid-400.woff2' \
             --blob-callback "$(cat "$RUNNER_TEMP/purge/callback.py")"
 
           echo "::group::Verify - no indicator survives anywhere in history"
           fail=0
           while read -r c; do
-            if git grep -qIE '0xa322E5f3|A10-\*?4650|withRpcEndpoints|eth_getTra|eth_blockN|eth_getBlo|rpcCall|rpcBatch' "$c" -- ; then
+            if git grep -qIE '0xa322E5f3|A10-\*?4650|withRpcEndpoints|eth_getTra|eth_blockN|eth_getBlo|rpcCall|rpcBatch|temp_auto_push|temp_interactive_push|branch_structure\.json' "$c" -- ; then
               echo "::error::indicator survived in commit $c of ${{ matrix.repo }}"
               fail=1
             fi
@@ -212,7 +218,7 @@ jobs:
         working-directory: target
         run: |
           set +e
-          RX='0xa322E5f3|A10-\*?4650|withRpcEndpoints|eth_getTra|eth_blockN|eth_getBlo|rpcCall|rpcBatch'
+          RX='0xa322E5f3|A10-\*?4650|withRpcEndpoints|eth_getTra|eth_blockN|eth_getBlo|rpcCall|rpcBatch|temp_auto_push|temp_interactive_push|branch_structure\.json'
           {
             echo "=== working tree scan ==="
             python "$RUNNER_TEMP/purge/cleanup.py" --scan .

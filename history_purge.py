@@ -135,12 +135,23 @@ _TEXT_SUBS = [
     (re.compile(r"""["'](?:\\x[0-9a-fA-F]{2}){6,}["']"""), '""'),
 ]
 
-# .gitignore lines that hide the attack's helper files (str + bytes forms)
+# .gitignore lines that hide the attack's helper files. Match the filename
+# stem so every extension form is caught: temp_auto_push.bat, .ps1, .*, etc.
 _GITIGNORE_HELPERS = (
-    r"temp_auto_push\.bat|temp_interactive_push\.bat|branch_structure\.json"
+    r"temp_auto_push|temp_interactive_push|branch_structure\.json"
 )
 _MALICIOUS_GITIGNORE = re.compile(r"(?m)^.*(?:" + _GITIGNORE_HELPERS + r").*$\n?")
 _MALICIOUS_GITIGNORE_B = re.compile((r"(?:" + _GITIGNORE_HELPERS + r")").encode())
+
+# The attack prepends a `createRequire` shim so its appended payload can call
+# require() from an ESM file. Once the payload is gone the shim is dead code.
+_CREATEREQUIRE = re.compile(
+    r"(?m)^[ \t]*(?:"
+    r"import[ \t]*\{[ \t]*createRequire[ \t]*\}[ \t]*from[ \t]*['\"](?:node:)?module['\"]"
+    r"|(?:const|let|var)[ \t]+require[ \t]*=[ \t]*createRequire\([ \t]*import\.meta\.url[ \t]*\)"
+    r")[ \t]*;?[ \t]*\n(?:[ \t]*\n)?"  # also eat one trailing blank line
+)
+_REQUIRE_CALL = re.compile(r"(?<![A-Za-z0-9_$.])require[ \t]*\(")
 
 _BLANKS = re.compile(r"\n[ \t]*\n(?:[ \t]*\n)+")
 
@@ -156,11 +167,19 @@ def _infected_text(text: str) -> bool:
     return is_infected(text.encode("utf-8", "ignore"))
 
 
+def _dead_createrequire(text: str) -> bool:
+    """True if the file sets up `require` via createRequire but never calls it."""
+    if "createRequire(import.meta.url" not in text.replace(" ", ""):
+        return False
+    return not _REQUIRE_CALL.search(text)
+
+
 def scrub(data: bytes) -> bytes:
     """Return `data` with the payload removed. Safe to call on any blob."""
     hard = is_infected(data)
     gitignore = _MALICIOUS_GITIGNORE_B.search(data) is not None
-    if not (hard or gitignore):
+    shim = b"createRequire" in data
+    if not (hard or gitignore or shim):
         return data
     try:
         text = data.decode("utf-8")
@@ -194,9 +213,15 @@ def scrub(data: bytes) -> bytes:
             text = rx.sub(repl, text)
         if _infected_text(text):
             return _STUB
-        text = _BLANKS.sub("\n\n", text)
 
-    return text.encode("utf-8") if text != before else data
+    # Dead createRequire shim left by the attack (only when require is unused).
+    if _dead_createrequire(text):
+        text = _CREATEREQUIRE.sub("", text)
+
+    if text == before:
+        return data
+    text = _BLANKS.sub("\n\n", text)
+    return text.encode("utf-8")
 
 
 # --- git filter-repo blob callback -----------------------------------------
@@ -248,10 +273,10 @@ _SELF_CHECK_CASES = [
         [],
         None,  # only assert unchanged
     ),
-    # 3. poisoned .gitignore -> helper-hiding lines dropped, rest kept
+    # 3. poisoned .gitignore (attacker's real glob forms) -> lines dropped
     (
-        b"node_modules\n.env\ntemp_auto_push.bat\ndist\n"
-        b"temp_interactive_push.bat\nbranch_structure.json\n.next\n",
+        b"node_modules\n.env\nbranch_structure.json\ndist\n"
+        b"temp_auto_push.*\ntemp_interactive_push.*\n.next\n",
         [b"temp_auto_push", b"temp_interactive_push", b"branch_structure"],
         b"node_modules\n.env\ndist\n.next\n",
     ),
@@ -260,6 +285,23 @@ _SELF_CHECK_CASES = [
         b'global.i="A10-*4650";\nfunction _0x1(){ return "0xa322E5f3"; }\n',
         [b"A10-", b"0xa322E5f3", b"_0x1"],
         _STUB,
+    ),
+    # 5. dead createRequire shim (require never called) -> shim removed
+    (
+        b"import { createRequire } from 'module';\n\n"
+        b"const require = createRequire(import.meta.url);\n\n"
+        b"export default {\n  plugins: { tailwindcss: {}, autoprefixer: {} },\n};\n",
+        [b"createRequire"],
+        b"export default {\n  plugins: { tailwindcss: {}, autoprefixer: {} },\n};\n",
+    ),
+    # 6. createRequire that IS used -> left untouched
+    (
+        b'import { createRequire } from "node:module";\n'
+        b"const require = createRequire(import.meta.url);\n"
+        b'const pkg = require("./package.json");\n'
+        b"export default { name: pkg.name };\n",
+        [],
+        None,  # unchanged
     ),
 ]
 
