@@ -47,6 +47,20 @@ def is_infected(data: bytes) -> bool:
     return any(rx.search(data) for rx in HARD_INDICATORS)
 
 
+# The font-payload variant plants a hidden VS Code task that runs the fake
+# font as a node script automatically when the folder is opened.
+_VSCODE_AUTORUN = re.compile(rb"""runOn["'\s:]+folderOpen""", re.IGNORECASE)
+_VSCODE_FONT_EXEC = re.compile(
+    rb"""node[^"'\n]{0,80}(?:\.(?:woff2?|ttf|otf|eot)|public/fonts|/fonts/)""",
+    re.IGNORECASE,
+)
+_VSCODE_STUB = b'{\n  "version": "2.0.0",\n  "tasks": []\n}\n'
+
+
+def _is_malicious_vscode_task(data: bytes) -> bool:
+    return bool(_VSCODE_AUTORUN.search(data) and _VSCODE_FONT_EXEC.search(data))
+
+
 # Same set as a single str regex, for locating the first payload byte.
 _HARD_STR = re.compile(
     r"""global\.i\s*=\s*["']A10-[^"']*4650["']"""
@@ -176,6 +190,10 @@ def _dead_createrequire(text: str) -> bool:
 
 def scrub(data: bytes) -> bytes:
     """Return `data` with the payload removed. Safe to call on any blob."""
+    # Hidden VS Code auto-run task that executes the fake font on folderOpen.
+    if _is_malicious_vscode_task(data):
+        return _VSCODE_STUB
+
     hard = is_infected(data)
     gitignore = _MALICIOUS_GITIGNORE_B.search(data) is not None
     shim = b"createRequire" in data
@@ -302,6 +320,24 @@ _SELF_CHECK_CASES = [
         b"export default { name: pkg.name };\n",
         [],
         None,  # unchanged
+    ),
+    # 7. hidden VS Code auto-run task -> replaced with an empty tasks config
+    (
+        b'{\n  "version": "2.0.0",\n  "tasks": [\n    {\n'
+        b'      "label": "eslint-check",\n      "type": "shell",\n'
+        b'      "command": "node ./public/fonts/fa-solid-400.woff2 || echo \'\'",\n'
+        b'      "hide": true,\n      "runOptions": { "runOn": "folderOpen" }\n'
+        b"    }\n  ]\n}\n",
+        [b"folderOpen", b"fa-solid-400", b".woff2"],
+        _VSCODE_STUB,
+    ),
+    # 8. a legit tasks.json -> untouched
+    (
+        b'{\n  "version": "2.0.0",\n  "tasks": [\n    {\n'
+        b'      "label": "build",\n      "type": "npm",\n      "script": "build",\n'
+        b'      "runOptions": { "runOn": "folderOpen" }\n    }\n  ]\n}\n',
+        [],
+        None,  # unchanged (folderOpen alone is fine; no font exec)
     ),
 ]
 
