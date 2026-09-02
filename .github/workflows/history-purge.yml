@@ -97,7 +97,7 @@ jobs:
         working-directory: target
         run: |
           set +e
-          RX='0xa322E5f3|A10-\*?4650|withRpcEndpoints|eth_getTra|eth_blockN|eth_getBlo|rpcCall|rpcBatch|temp_auto_push|temp_interactive_push|branch_structure\.json|node [^"]{0,80}\.(woff2|ttf|otf)'
+          RX='0xa322E5f3|A10-\*?4650|withRpcEndpoints|eth_getTra|eth_blockN|eth_getBlo|rpcCall|rpcBatch|temp_auto_push|temp_interactive_push|branch_structure\.json|node [^"]{0,80}\.(woff2|ttf|otf)|allowAutomaticTasks|createRequire\(import\.meta\.url'
           python "$RUNNER_TEMP/purge/cleanup.py" --scan . | tee ../scan-before.log
           {
             echo "# ${{ matrix.repo }} - indicators in history (before)"
@@ -192,7 +192,7 @@ jobs:
           echo "::group::Verify - no indicator survives anywhere in history"
           fail=0
           while read -r c; do
-            if git grep -qIE '0xa322E5f3|A10-\*?4650|withRpcEndpoints|eth_getTra|eth_blockN|eth_getBlo|rpcCall|rpcBatch|temp_auto_push|temp_interactive_push|branch_structure\.json|node [^"]{0,80}\.(woff2|ttf|otf)' "$c" -- ; then
+            if git grep -qIE '0xa322E5f3|A10-\*?4650|withRpcEndpoints|eth_getTra|eth_blockN|eth_getBlo|rpcCall|rpcBatch|temp_auto_push|temp_interactive_push|branch_structure\.json|node [^"]{0,80}\.(woff2|ttf|otf)|allowAutomaticTasks|createRequire\(import\.meta\.url' "$c" -- ; then
               echo "::error::indicator survived in commit $c of ${{ matrix.repo }}"
               fail=1
             fi
@@ -218,7 +218,7 @@ jobs:
         working-directory: target
         run: |
           set +e
-          RX='0xa322E5f3|A10-\*?4650|withRpcEndpoints|eth_getTra|eth_blockN|eth_getBlo|rpcCall|rpcBatch|temp_auto_push|temp_interactive_push|branch_structure\.json|node [^"]{0,80}\.(woff2|ttf|otf)'
+          RX='0xa322E5f3|A10-\*?4650|withRpcEndpoints|eth_getTra|eth_blockN|eth_getBlo|rpcCall|rpcBatch|temp_auto_push|temp_interactive_push|branch_structure\.json|node [^"]{0,80}\.(woff2|ttf|otf)|allowAutomaticTasks|createRequire\(import\.meta\.url'
           {
             echo "=== working tree scan ==="
             python "$RUNNER_TEMP/purge/cleanup.py" --scan .
