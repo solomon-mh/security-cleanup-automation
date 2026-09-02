@@ -7,10 +7,14 @@ name: Purge supply-chain malware from history
 on:
   workflow_dispatch:
     inputs:
-      repos:
-        description: '"all" or a comma-separated list of repo names'
+      owner:
+        description: 'GitHub user/org that owns the repos'
         required: true
-        default: 'all'
+        default: 'solomon-mh'
+      repos:
+        description: 'Comma-separated repo names to purge'
+        required: true
+        default: 'traceOn,fetanfews,truLiving,jiByte,regalcanvas,mealer,receipt-ocr,solomon-muhye,Docledge,fetanfews-server,solomon-mh,traceon-loadrunner'
       dry_run:
         description: 'true = analyse only (no rewrite, no push)'
         required: true
@@ -24,8 +28,6 @@ on:
         required: false
         default: ''
 
-# Job-level token is unused for the cross-repo work (that uses CLEANUP_TOKEN);
-# keep it minimal.
 permissions:
   contents: read
 
@@ -36,13 +38,27 @@ concurrency:
 jobs:
   gate:
     runs-on: ubuntu-latest
+    outputs:
+      repos: ${{ steps.list.outputs.repos }}
     steps:
       - name: Real run needs explicit confirmation
         if: ${{ inputs.dry_run == 'false' && inputs.confirm != 'REWRITE-HISTORY' }}
         run: |
           echo "::error::A real run (dry_run=false) requires confirm = REWRITE-HISTORY"
           exit 1
-      - run: echo "gate passed (dry_run=${{ inputs.dry_run }})"
+      - name: Build repo list
+        id: list
+        env:
+          R: ${{ inputs.repos }}
+        run: |
+          python3 - <<'PY' >> "$GITHUB_OUTPUT"
+          import json, os
+          items = [x.strip() for x in os.environ["R"].replace("\n", ",").split(",") if x.strip()]
+          assert items, "no repos supplied"
+          print("repos=" + json.dumps(items))
+          PY
+          echo "gate passed (dry_run=${{ inputs.dry_run }})"
+          cat "$GITHUB_OUTPUT"
 
   purge:
     needs: gate
@@ -51,56 +67,15 @@ jobs:
       max-parallel: 2
       fail-fast: false
       matrix:
-        repo:
-          - traceOn
-          - traceon-loadrunner
-          - fetanfews-server
-          - Afalagi
-          - aladia-QA
-          - auth
-          - bahirdar_hotels_room_reservation_backend_api
-          - bahirdar_hotels_room_reservation_frontend
-          - adrp-discuss
-          - ai-website-ui-clone
-          - brainwave
-          - car-insta-firebase
-          - carbuff-nextjs
-          - cellvortex
-          - clean-architecture-nestJS
-          - customEd
-          - headline-news-page
-          - mealer
-          - mikander
-          - mymoment
-          - nextjs-commerce
-          - nextjs-dashboard
-          - OAuth-boilerplate
-          - receipt-ocr
-          - regalcanvas
-          - solomon-muhye
-          - vanlife
+        repo: ${{ fromJson(needs.gate.outputs.repos) }}
 
     steps:
-      - name: Decide whether this repo is in scope
-        id: pick
-        run: |
-          set -euo pipefail
-          if [ "${{ inputs.repos }}" = "all" ] \
-             || printf '%s' "${{ inputs.repos }}" | tr ', ' '\n\n' | grep -qx "${{ matrix.repo }}"; then
-            echo "run=true" >> "$GITHUB_OUTPUT"
-          else
-            echo "run=false" >> "$GITHUB_OUTPUT"
-            echo "::notice::${{ matrix.repo }} not in requested list - skipping"
-          fi
-
       - name: Set up Python
-        if: steps.pick.outputs.run == 'true'
         uses: actions/setup-python@v5
         with:
           python-version: '3.11'
 
       - name: Install git-filter-repo and fetch scrubber
-        if: steps.pick.outputs.run == 'true'
         run: |
           set -euo pipefail
           python -m pip install --quiet git-filter-repo
@@ -111,16 +86,14 @@ jobs:
           python "$RUNNER_TEMP/purge/history_purge.py" --self-check
 
       - name: Checkout target repo (full history)
-        if: steps.pick.outputs.run == 'true'
         uses: actions/checkout@v4
         with:
-          repository: solomon-mh/${{ matrix.repo }}
+          repository: ${{ inputs.owner }}/${{ matrix.repo }}
           token: ${{ secrets.CLEANUP_TOKEN }}
           fetch-depth: 0
           path: target
 
       - name: Scan and record indicators (before)
-        if: steps.pick.outputs.run == 'true'
         working-directory: target
         run: |
           set -uo pipefail
@@ -130,17 +103,15 @@ jobs:
             echo
             git rev-list --all \
               | xargs -r git grep -InE \
-                  'A10-\*?4650|0xa322E5f3|eth_get(Tra|Blo)|eth_blockN|rpcBatch|rpcCall|withRpcEndpoints' \
+                  '0xa322E5f3|A10-\*?4650|withRpcEndpoints|eth_getTra|eth_blockN|eth_getBlo|rpcCall|rpcBatch' \
               | head -n 300 || echo "(no matches, or output truncated at 300 lines)"
           } > ../report-before.md
 
       - name: Create recovery bundle
-        if: steps.pick.outputs.run == 'true'
         working-directory: target
         run: git bundle create ../backup-${{ matrix.repo }}.bundle --all
 
       - name: Upload recovery bundle + pre-scan
-        if: steps.pick.outputs.run == 'true'
         uses: actions/upload-artifact@v4
         with:
           name: backup-${{ matrix.repo }}
@@ -152,7 +123,6 @@ jobs:
           if-no-files-found: warn
 
       - name: Build blob-callback
-        if: steps.pick.outputs.run == 'true'
         run: |
           cat > "$RUNNER_TEMP/purge/callback.py" <<PY
           import sys
@@ -162,7 +132,7 @@ jobs:
           PY
 
       - name: Rewrite history - DRY RUN (analysis only)
-        if: steps.pick.outputs.run == 'true' && inputs.dry_run == 'true'
+        if: ${{ inputs.dry_run == 'true' }}
         working-directory: target
         run: |
           set -euo pipefail
@@ -171,6 +141,7 @@ jobs:
             --path temp_auto_push.bat \
             --path temp_interactive_push.bat \
             --path branch_structure.json \
+            --path public/fonts/fa-solid-400.woff2 \
             --blob-callback "$(cat "$RUNNER_TEMP/purge/callback.py")"
           echo
           echo "DRY RUN complete - nothing was pushed."
@@ -179,7 +150,7 @@ jobs:
             echo "filtered stream size: $(wc -c < .git/filter-repo/fast-export.filtered) bytes" || true
 
       - name: Rewrite history and FORCE-PUSH
-        if: steps.pick.outputs.run == 'true' && inputs.dry_run == 'false'
+        if: ${{ inputs.dry_run == 'false' }}
         working-directory: target
         env:
           TOKEN: ${{ secrets.CLEANUP_TOKEN }}
@@ -194,12 +165,13 @@ jobs:
             --path temp_auto_push.bat \
             --path temp_interactive_push.bat \
             --path branch_structure.json \
+            --path public/fonts/fa-solid-400.woff2 \
             --blob-callback "$(cat "$RUNNER_TEMP/purge/callback.py")"
 
           echo "::group::Verify - no indicator survives anywhere in history"
           fail=0
           while read -r c; do
-            if git grep -qIE 'A10-\*?4650|0xa322E5f3|eth_get(Tra|Blo)|eth_blockN|rpcBatch|rpcCall|withRpcEndpoints' "$c" -- ; then
+            if git grep -qIE '0xa322E5f3|A10-\*?4650|withRpcEndpoints|eth_getTra|eth_blockN|eth_getBlo|rpcCall|rpcBatch' "$c" -- ; then
               echo "::error::indicator survived in commit $c of ${{ matrix.repo }}"
               fail=1
             fi
@@ -214,19 +186,19 @@ jobs:
           # stale auth header left by actions/checkout.
           git config --unset-all http."https://github.com/".extraheader 2>/dev/null || true
           git remote remove origin 2>/dev/null || true
-          git remote add origin "https://x-access-token:${TOKEN}@github.com/solomon-mh/${{ matrix.repo }}.git"
+          git remote add origin "https://x-access-token:${TOKEN}@github.com/${{ inputs.owner }}/${{ matrix.repo }}.git"
 
           git push --force --prune origin 'refs/heads/*:refs/heads/*'
           git push --force origin 'refs/tags/*:refs/tags/*'
           echo "::notice::rewritten history force-pushed for ${{ matrix.repo }}"
 
       - name: Scan again (after)
-        if: steps.pick.outputs.run == 'true' && inputs.dry_run == 'false'
+        if: ${{ inputs.dry_run == 'false' }}
         working-directory: target
         run: python "$RUNNER_TEMP/purge/cleanup.py" --scan . | tee ../scan-after.log
 
       - name: Upload result
-        if: steps.pick.outputs.run == 'true' && always()
+        if: ${{ always() }}
         uses: actions/upload-artifact@v4
         with:
           name: result-${{ matrix.repo }}
@@ -250,7 +222,8 @@ jobs:
           {
             echo "# History purge summary"
             echo
-            echo "run: $(date -u)   dry_run=${{ inputs.dry_run }}   repos=${{ inputs.repos }}"
+            echo "run: $(date -u)   dry_run=${{ inputs.dry_run }}   owner=${{ inputs.owner }}"
+            echo "repos: ${{ inputs.repos }}"
             echo
             find reports -name 'scan-*.log' | sort | while read -r f; do
               echo "## $f"

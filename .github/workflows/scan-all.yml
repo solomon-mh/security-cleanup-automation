@@ -1,23 +1,28 @@
 name: Scan all repos for malware
 
 # READ-ONLY. Lists every repo the CLEANUP_TOKEN can see, clones each one,
-# greps for the supply-chain-attack indicators, and prints a table of which
-# repos are infected and which are clean. Changes nothing, pushes nothing.
+# greps for the supply-chain-attack indicators (current tree + optionally
+# full history), and prints a table of INFECTED / SUSPECT / clean plus a
+# malware-scan-report artifact. Changes nothing, pushes nothing.
 
 on:
   workflow_dispatch:
     inputs:
       owner:
-        description: 'User/org to scan (leave blank = whoever owns the token)'
+        description: 'User/org to scan (blank = whoever owns the token)'
         required: false
         default: ''
       scan_history:
-        description: 'Also scan full commit history (slower, but catches malware that was "fixed" in a later commit)'
+        description: 'Also scan full commit history (slower)'
         type: choice
         options:
           - 'true'
           - 'false'
         default: 'true'
+      exclude:
+        description: 'Comma-separated repo names to skip (this toolkit is always skipped)'
+        required: false
+        default: ''
 
 permissions:
   contents: read
@@ -31,13 +36,24 @@ jobs:
           GH_TOKEN: ${{ secrets.CLEANUP_TOKEN }}
           OWNER: ${{ inputs.owner }}
           SCAN_HISTORY: ${{ inputs.scan_history }}
+          EXCLUDE: ${{ inputs.exclude }}
         run: |
           set -uo pipefail
 
-          # Distinctive strings from the documented attack (POSIX ERE, no quotes).
-          RX='A10-\*?4650|0xa322E5f3|eth_getTra|eth_blockN|eth_getBlo|withRpcEndpoints|rpcCall|rpcBatch|spawn\(.{0,6}node'
+          # Strong = unambiguous attack strings. Weak = suggestive but can occur
+          # in legitimate code, so a weak-only match is reported as SUSPECT.
+          STRONG='0xa322E5f3|A10-\*?4650|withRpcEndpoints|eth_getTra|eth_blockN|eth_getBlo'
+          WEAK='rpcCall|rpcBatch|spawn\(.{0,6}node'
+          BOTH="${STRONG}|${WEAK}"
 
-          # --- 1. list repositories ------------------------------------------
+          # Always skip this toolkit (it *contains* the detection patterns) and
+          # documentation files that merely quote the indicators.
+          SKIP_RE="^(security-cleanup-automation"
+          IFS=',' read -ra EX <<< "${EXCLUDE}"
+          for e in "${EX[@]}"; do e="$(echo "$e" | xargs)"; [ -n "$e" ] && SKIP_RE="${SKIP_RE}|${e}"; done
+          SKIP_RE="${SKIP_RE})$"
+
+          # --- 1. list repositories --------------------------------------
           : > repos.txt
           page=1
           while : ; do
@@ -49,77 +65,85 @@ jobs:
             resp=$(curl -fsS -H "Authorization: Bearer ${GH_TOKEN}" \
                               -H "Accept: application/vnd.github+json" \
                               -H "X-GitHub-Api-Version: 2022-11-28" "$url") || {
-              echo "::error::GitHub API call failed (page ${page}). Check the CLEANUP_TOKEN."
-              break
-            }
+              echo "::error::GitHub API call failed (page ${page}). Check CLEANUP_TOKEN."; break; }
             names=$(printf '%s' "$resp" | jq -r '.[].full_name' 2>/dev/null || true)
             [ -z "$names" ] && break
             printf '%s\n' "$names" >> repos.txt
-            n=$(printf '%s\n' "$names" | grep -c .)
-            [ "$n" -lt 100 ] && break
+            [ "$(printf '%s\n' "$names" | grep -c .)" -lt 100 ] && break
             page=$((page + 1))
           done
 
           total=$(grep -c . repos.txt || true)
           echo "Repositories visible to the token: ${total}"
-          if [ "${total}" -eq 0 ]; then
-            echo "::error::No repositories found. Either the token has no repo access, or OWNER is wrong."
-            exit 1
-          fi
+          [ "${total}" -eq 0 ] && { echo "::error::No repos found - token has no access or OWNER is wrong."; exit 1; }
           echo
 
           # --- 2. scan each repo -------------------------------------------
           : > report.txt
           : > details.txt
-          printf '%-46s | %-8s | %s\n' "REPO" "STATUS" "FIRST HIT (count)" | tee -a report.txt
-          printf '%s\n' "-------------------------------------------------------------------------------" | tee -a report.txt
+          printf '%-42s | %-9s | %s\n' "REPO" "STATUS" "NOTES" | tee -a report.txt
+          printf '%s\n' "---------------------------------------------------------------------" | tee -a report.txt
 
+          n_inf=0; n_sus=0; n_clean=0; n_skip=0; n_err=0
           while read -r full; do
             [ -z "$full" ] && continue
+            name="${full#*/}"
+            if echo "$name" | grep -qE "$SKIP_RE"; then
+              printf '%-42s | %-9s | %s\n' "$full" "skipped" "excluded" | tee -a report.txt
+              n_skip=$((n_skip+1)); continue
+            fi
             rm -rf work work.git
 
             if [ "${SCAN_HISTORY}" = "true" ]; then
-              if ! git clone --quiet --mirror \
-                   "https://x-access-token:${GH_TOKEN}@github.com/${full}.git" work.git 2>/dev/null; then
-                printf '%-46s | %-8s | %s\n' "$full" "ERROR" "clone failed" | tee -a report.txt
-                continue
-              fi
-              hits=$(cd work.git && git rev-list --all 2>/dev/null \
-                     | xargs -r git grep -lIE "$RX" 2>/dev/null | sort -u | head -n 25)
+              git clone --quiet --mirror "https://x-access-token:${GH_TOKEN}@github.com/${full}.git" work.git 2>/dev/null \
+                || { printf '%-42s | %-9s | %s\n' "$full" "ERROR" "clone failed" | tee -a report.txt; n_err=$((n_err+1)); continue; }
+              raw=$(cd work.git && git rev-list --all 2>/dev/null \
+                    | xargs -r git grep -nIE "$BOTH" -- ':!*.md' 2>/dev/null | head -n 400)
               rm -rf work.git
             else
-              if ! git clone --quiet --depth 1 \
-                   "https://x-access-token:${GH_TOKEN}@github.com/${full}.git" work 2>/dev/null; then
-                printf '%-46s | %-8s | %s\n' "$full" "ERROR" "clone failed" | tee -a report.txt
-                continue
-              fi
-              hits=$(grep -rlIE "$RX" --exclude-dir=.git work 2>/dev/null | sed 's|^work/||' | head -n 25)
+              git clone --quiet --depth 1 "https://x-access-token:${GH_TOKEN}@github.com/${full}.git" work 2>/dev/null \
+                || { printf '%-42s | %-9s | %s\n' "$full" "ERROR" "clone failed" | tee -a report.txt; n_err=$((n_err+1)); continue; }
+              raw=$( (cd work && grep -rnIE "$BOTH" --include='*' --exclude='*.md' --exclude-dir=.git . 2>/dev/null) | head -n 400)
               rm -rf work
             fi
 
-            if [ -n "$hits" ]; then
-              c=$(printf '%s\n' "$hits" | grep -c .)
-              first=$(printf '%s\n' "$hits" | head -n1)
-              printf '%-46s | %-8s | %s\n' "$full" "INFECTED" "${first} (+$((c-1)) more)" | tee -a report.txt
-              {
-                echo "### ${full}"
-                printf '%s\n' "$hits"
-                echo
-              } >> details.txt
-            else
-              printf '%-46s | %-8s | %s\n' "$full" "clean" "" | tee -a report.txt
+            if [ -z "$raw" ]; then
+              printf '%-42s | %-9s | %s\n' "$full" "clean" "" | tee -a report.txt
+              n_clean=$((n_clean+1)); continue
             fi
+
+            # classify
+            strong_hit=$(printf '%s\n' "$raw" | grep -E "$STRONG" | head -n 1 || true)
+            files=$(printf '%s\n' "$raw" | sed -E 's/^[0-9a-f]{7,40}://; s/:[0-9]+:.*$//' | sort -u)
+            fonts=$(printf '%s\n' "$files" | grep -iE '\.(woff2?|ttf|otf|eot)$' || true)
+            code=$(printf  '%s\n' "$files" | grep -ivE '\.(woff2?|ttf|otf|eot)$' || true)
+            note=""
+            [ -n "$code" ]  && note="scrub: $(printf '%s\n' "$code"  | paste -sd, -)"
+            [ -n "$fonts" ] && note="${note:+$note | }DELETE FILE: $(printf '%s\n' "$fonts" | paste -sd, -)"
+
+            if [ -n "$strong_hit" ]; then
+              printf '%-42s | %-9s | %s\n' "$full" "INFECTED" "$note" | tee -a report.txt
+              n_inf=$((n_inf+1))
+            else
+              printf '%-42s | %-9s | %s\n' "$full" "SUSPECT" "$note (weak match only - review)" | tee -a report.txt
+              n_sus=$((n_sus+1))
+            fi
+            {
+              echo "### ${full}"
+              printf '%s\n' "$raw" | cut -c1-200
+              echo
+            } >> details.txt
           done < repos.txt
 
           echo
           echo "===================== SUMMARY ====================="
-          infected=$(grep -c ' | INFECTED | ' report.txt || true)
-          errors=$(grep -c ' | ERROR' report.txt || true)
-          echo "scanned : ${total}"
-          echo "infected: ${infected}"
-          echo "errors  : ${errors}"
+          echo "infected : ${n_inf}"
+          echo "suspect  : ${n_sus}"
+          echo "clean    : ${n_clean}"
+          echo "skipped  : ${n_skip}"
+          echo "errors   : ${n_err}"
           echo
-          echo "----- infected file detail -----"
+          echo "----- match detail (first 200 chars per line) -----"
           cat details.txt 2>/dev/null || echo "(none)"
 
       - name: Upload report

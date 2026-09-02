@@ -20,8 +20,8 @@ A recovery bundle of the *pre-rewrite* repo is saved as a build artifact
 
 | Thing | How |
 |---|---|
-| `temp_auto_push.bat`, `temp_interactive_push.bat`, `branch_structure.json` | file deleted from all of history (`git filter-repo --invert-paths`) |
-| Payload appended after legit code in `eslint.config.js` etc. | truncated back to the last real statement before the first indicator |
+| `temp_auto_push.bat`, `temp_interactive_push.bat`, `branch_structure.json`, `public/fonts/fa-solid-400.woff2` (the payload disguised as a font) | file deleted from all of history (`git filter-repo --invert-paths`) |
+| Payload appended after legit code in `eslint.config.js` / `postcss.config.js` / `postcss.config.mjs` | truncated back to the last real statement before the first indicator |
 | `global.i="A10-…4650"`, injected `global.x=` / `global['_V']=` lines | line removed |
 | `const/function _0x…` obfuscation, `withRpcEndpoints`/`rpcCall`/`rpcBatch` helpers | declaration removed |
 | `0xa322E5f3…` wallet address | replaced with the zero address |
@@ -36,13 +36,26 @@ left untouched.
 
 ---
 
+## Which repos
+
+Confirmed infected by the **"Scan all repos for malware"** workflow
+(re-run it first if your token gained access to more repos):
+
+| Payload | Repos |
+|---|---|
+| `eslint.config.js` | `traceOn`, `fetanfews`, `truLiving` |
+| `postcss.config.js` / `.mjs` | `jiByte`, `regalcanvas`, `mealer`, `receipt-ocr`, `solomon-muhye` |
+| fake `fa-solid-400.woff2` | `Docledge`, `fetanfews-server`, `solomon-mh`, `traceon-loadrunner` |
+
+This is the default value of the workflow's `repos` input. Edit it to
+match your latest scan.
+
 ## Prerequisites (one time)
 
-1. **`CLEANUP_TOKEN` secret** on this repo
-   (Settings → Secrets and variables → Actions).
-   A PAT that can push to all 26 repos: **Contents: Read/Write** and
+1. **`CLEANUP_TOKEN` secret** (Settings → Secrets and variables → Actions).
+   A PAT that can push to every infected repo: **Contents: Read/Write** and
    **Pull requests: Read/Write**. Fine-grained is fine — resource owner
-   `solomon-mh`, all repos.
+   `solomon-mh`, all repositories.
 
 2. **Branch protection** — a force-push to a protected branch fails.
    For each infected repo, in Settings → Branches, temporarily enable
@@ -51,6 +64,10 @@ left untouched.
 
 3. **Tell collaborators** to stop pushing until the rewrite is done, and to
    re-clone afterwards.
+
+4. **After a font-payload repo is purged**, add a real Font Awesome
+   `fa-solid-900.woff2` back (the malicious file used the non-standard
+   name `fa-solid-400`) and fix the `@font-face` reference.
 
 ---
 
@@ -69,7 +86,8 @@ git -C /tmp/<repo> diff                        # review every change
 GitHub → **Actions** → **Purge supply-chain malware from history** →
 **Run workflow**:
 
-- `repos`: `traceOn` (a single name)
+- `owner`: `solomon-mh`
+- `repos`: `traceOn` (one name — replace the default list)
 - `dry_run`: `true`
 - `confirm`: leave blank
 
@@ -95,11 +113,12 @@ git log --all -p -S 0xa322E5f3        # expect: nothing
 python /path/to/cleanup.py --scan .   # expect: exit 0, no infected files
 ```
 
-## Step 4 — fleet run
+## Step 4 — the rest
 
 Once one repo checks out clean end-to-end:
 
-- `repos`: `all`
+- `repos`: the full comma-separated list (the input's default), or whatever
+  your latest scan reported
 - `dry_run`: `false`
 - `confirm`: `REWRITE-HISTORY`
 
