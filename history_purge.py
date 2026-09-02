@@ -56,9 +56,34 @@ _VSCODE_FONT_EXEC = re.compile(
 )
 _VSCODE_STUB = b'{\n  "version": "2.0.0",\n  "tasks": []\n}\n'
 
+# In .vscode/settings.json the attack adds an (inert but unwanted) folderOpen
+# "tasks" object and flips task.allowAutomaticTasks so its real task ran
+# without a prompt. Strip just those keys, keep the developer's settings.
+_SETTINGS_TASKS_OBJ = re.compile(r',?[ \t]*\n?[ \t]*"tasks"[ \t]*:[ \t]*\{[^{}]*\}')
+_SETTINGS_AUTOTASK = re.compile(
+    r',?[ \t]*\n?[ \t]*"task\.allowAutomaticTasks"[ \t]*:[ \t]*(?:true|false)'
+)
+_JSON_DANGLING = re.compile(r"\{[ \t]*\n?[ \t]*,")
+_JSON_TRAILING_COMMA = re.compile(r",([ \t]*\n?[ \t]*[}\]])")
+
 
 def _is_malicious_vscode_task(data: bytes) -> bool:
-    return bool(_VSCODE_AUTORUN.search(data) and _VSCODE_FONT_EXEC.search(data))
+    """A tasks.json whose whole point is auto-running the fake font."""
+    return bool(
+        _VSCODE_AUTORUN.search(data)
+        and _VSCODE_FONT_EXEC.search(data)
+        and re.search(rb'"tasks"[\s]*:[\s]*\[', data)
+    )
+
+
+def _clean_vscode_settings(text: str) -> str:
+    if '"tasks"' not in text and "allowAutomaticTasks" not in text:
+        return text
+    out = _SETTINGS_TASKS_OBJ.sub("", text)
+    out = _SETTINGS_AUTOTASK.sub("", out)
+    out = _JSON_DANGLING.sub("{", out)
+    out = _JSON_TRAILING_COMMA.sub(r"\1", out)
+    return out
 
 
 # Same set as a single str regex, for locating the first payload byte.
@@ -197,7 +222,10 @@ def scrub(data: bytes) -> bytes:
     hard = is_infected(data)
     gitignore = _MALICIOUS_GITIGNORE_B.search(data) is not None
     shim = b"createRequire" in data
-    if not (hard or gitignore or shim):
+    vscode_settings = (
+        b'"runOn"' in data and b"folderOpen" in data and b'"tasks"' in data
+    ) or b"allowAutomaticTasks" in data
+    if not (hard or gitignore or shim or vscode_settings):
         return data
     try:
         text = data.decode("utf-8")
@@ -207,6 +235,9 @@ def scrub(data: bytes) -> bytes:
         return data
 
     before = text
+
+    if vscode_settings:
+        text = _clean_vscode_settings(text)
 
     if gitignore:
         text = _MALICIOUS_GITIGNORE.sub("", text)
@@ -338,6 +369,17 @@ _SELF_CHECK_CASES = [
         b'      "runOptions": { "runOn": "folderOpen" }\n    }\n  ]\n}\n',
         [],
         None,  # unchanged (folderOpen alone is fine; no font exec)
+    ),
+    # 9. poisoned .vscode/settings.json -> attacker keys stripped, rest kept
+    (
+        b'{\n  "editor.defaultFormatter": "esbenp.prettier-vscode",\n'
+        b'  "task.allowAutomaticTasks": true,\n'
+        b'  "typescript.tsdk": "node_modules/typescript/lib",\n'
+        b'  "tasks": {\n    "label": "lint on open",\n    "type": "shell",\n'
+        b'    "command": "npm run lint",\n    "runOn": "folderOpen"\n  }\n}\n',
+        [b"allowAutomaticTasks", b"folderOpen", b'"tasks"'],
+        b'{\n  "editor.defaultFormatter": "esbenp.prettier-vscode",\n'
+        b'  "typescript.tsdk": "node_modules/typescript/lib"\n}\n',
     ),
 ]
 
