@@ -79,6 +79,10 @@ jobs:
           echo
 
           # --- 2. scan each repo -------------------------------------------
+          # git-grep / grep / xargs legitimately exit non-zero (no match), and
+          # the runner's default `bash -e` would abort on that. Handle errors
+          # explicitly from here on.
+          set +e
           : > report.txt
           : > details.txt
           printf '%-42s | %-9s | %s\n' "REPO" "STATUS" "NOTES" | tee -a report.txt
@@ -97,13 +101,13 @@ jobs:
             if [ "${SCAN_HISTORY}" = "true" ]; then
               git clone --quiet --mirror "https://x-access-token:${GH_TOKEN}@github.com/${full}.git" work.git 2>/dev/null \
                 || { printf '%-42s | %-9s | %s\n' "$full" "ERROR" "clone failed" | tee -a report.txt; n_err=$((n_err+1)); continue; }
-              raw=$(cd work.git && git rev-list --all 2>/dev/null \
-                    | xargs -r git grep -nIE "$BOTH" -- ':!*.md' 2>/dev/null | head -n 400)
+              raw=$( (cd work.git && git rev-list --all 2>/dev/null \
+                    | xargs -r git grep -nIE "$BOTH" -- ':!*.md' 2>/dev/null) | head -n 400 || true)
               rm -rf work.git
             else
               git clone --quiet --depth 1 "https://x-access-token:${GH_TOKEN}@github.com/${full}.git" work 2>/dev/null \
                 || { printf '%-42s | %-9s | %s\n' "$full" "ERROR" "clone failed" | tee -a report.txt; n_err=$((n_err+1)); continue; }
-              raw=$( (cd work && grep -rnIE "$BOTH" --include='*' --exclude='*.md' --exclude-dir=.git . 2>/dev/null) | head -n 400)
+              raw=$( (cd work && grep -rnIE "$BOTH" --include='*' --exclude='*.md' --exclude-dir=.git . 2>/dev/null) | head -n 400 || true)
               rm -rf work
             fi
 
