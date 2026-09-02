@@ -360,6 +360,8 @@ jobs:
     steps:
       - name: Download all reports
         uses: actions/download-artifact@v4
+        with:
+          path: reports
 
       - name: Generate summary
         run: |
@@ -367,7 +369,9 @@ jobs:
           echo "## Repositories Cleaned" >> summary.md
           echo "$(date)" >> summary.md
           echo "" >> summary.md
-          find . -name "cleanup-report-*.md" -exec echo "## {}" \; -exec cat {} \; >> summary.md
+          # download-artifact@v4 puts each artifact in reports/<artifact-name>/,
+          # and the per-repo report file is named cleanup_report.md
+          find reports -name "cleanup_report.md" -exec echo "## {}" \; -exec cat {} \; >> summary.md
 
       - name: Publish summary
         uses: actions/upload-artifact@v4
