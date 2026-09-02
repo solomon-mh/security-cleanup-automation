@@ -210,7 +210,16 @@ jobs:
       - name: Scan again (after)
         if: ${{ inputs.dry_run == 'false' }}
         working-directory: target
-        run: python "$RUNNER_TEMP/purge/cleanup.py" --scan . | tee ../scan-after.log
+        run: |
+          set +e
+          RX='0xa322E5f3|A10-\*?4650|withRpcEndpoints|eth_getTra|eth_blockN|eth_getBlo|rpcCall|rpcBatch'
+          {
+            echo "=== working tree scan ==="
+            python "$RUNNER_TEMP/purge/cleanup.py" --scan .
+            echo
+            echo "=== full history indicator grep (must be empty) ==="
+            git rev-list --all | xargs -r git grep -InE "$RX" | head -n 50 || echo "clean"
+          } | tee ../scan-after.log
 
       - name: Upload result
         if: ${{ always() }}

@@ -144,7 +144,16 @@ _MALICIOUS_GITIGNORE_B = re.compile((r"(?:" + _GITIGNORE_HELPERS + r")").encode(
 
 _BLANKS = re.compile(r"\n[ \t]*\n(?:[ \t]*\n)+")
 
+# The real payload is glued onto the end of a legit file on the *same physical
+# line*, hidden behind a long run of padding whitespace. Legit source (even
+# minified) never has 40+ consecutive spaces/tabs, so that run is the seam.
+_PAYLOAD_PAD = re.compile(r"[ \t\r\x0b\x0c]{40,}")
+
 _STUB = b"// removed by security cleanup: file contained supply-chain malware\n"
+
+
+def _infected_text(text: str) -> bool:
+    return is_infected(text.encode("utf-8", "ignore"))
 
 
 def scrub(data: bytes) -> bytes:
@@ -166,14 +175,25 @@ def scrub(data: bytes) -> bytes:
         text = _MALICIOUS_GITIGNORE.sub("", text)
 
     if hard:
-        # The payload is appended after legit code -- cut it off first.
-        truncated = _truncate_before_payload(text)
-        if truncated is None:
-            return _STUB
-        text = truncated
-        # Then mop up any indicator that sat *inside* the legit region.
+        # 1. Cut at the padding-whitespace seam, if the payload is past it.
+        cut = None
+        for pad in _PAYLOAD_PAD.finditer(text):
+            if _infected_text(text[pad.start():]):
+                cut = pad.start()
+                break
+        if cut is not None:
+            head = text[:cut].rstrip()
+            text = (head + "\n") if head else _STUB.decode()
+        else:
+            # 2. No seam -> brace-aware cut, else stub the whole file.
+            t = _truncate_before_payload(text)
+            text = _STUB.decode() if t is None else t
+
+        # 3. Mop up any indicator left inside the surviving region.
         for rx, repl in _TEXT_SUBS:
             text = rx.sub(repl, text)
+        if _infected_text(text):
+            return _STUB
         text = _BLANKS.sub("\n\n", text)
 
     return text.encode("utf-8") if text != before else data
@@ -195,18 +215,31 @@ _LEGIT_CONFIG = (
     b"});\n"
 )
 
+# Real-world shape: payload glued onto the last line of the legit file behind a
+# long whitespace pad, everything on one physical line, ending with run();
+_REAL_PAYLOAD = (
+    b'global.i="A10-*4650";const _0x499797=_0x1574;'
+    b"(function(_0x50cf58,_0x4b5935){})( _0x303e,123),global['r']=require);"
+    b"async function withRpcEndpoints(a,b){}"
+    b"async function rpcCall(u,m,p,s){}async function rpcBatch(u,b,s){}"
+    b'const R=["https://eth.drpc.org","0xa322E5f3"];'
+    b'function run(){eval("x");spawn("node",["-e",y]);}run();'
+)
+
 # (source, tokens_that_must_be_gone, exact_expected_output_or_None)
 _SELF_CHECK_CASES = [
-    # 1. payload appended after a legit config -> config restored verbatim
+    # 1. payload appended behind a whitespace pad -> legit config kept verbatim
     (
-        _LEGIT_CONFIG
-        + b'global.i="A10-*4650";const _0x499797=_0x1574;(function(){\n'
-        b'  var _0x1a = "x";\n})();\n'
-        b'function _0x1574(){ return withRpcEndpoints(["eth_getTransaction"]); }\n'
-        b"async function rpcBatch(c){ return spawn('node', ['-e', p]); }\n"
-        b'const w = "0xa322E5f3bBc1234567890";\n',
-        [b"A10-", b"_0x", b"0xa322E5f3", b"eth_get", b"rpcBatch", b"withRpcEndpoints"],
-        _LEGIT_CONFIG,
+        _LEGIT_CONFIG.rstrip() + b"\n);" + b" " * 400 + _REAL_PAYLOAD + b"\n",
+        [b"A10-", b"_0x", b"0xa322E5f3", b"eth_", b"rpcBatch", b"withRpcEndpoints",
+         b"spawn(", b"eval("],
+        _LEGIT_CONFIG.rstrip() + b"\n);\n",
+    ),
+    # 1b. payload appended with a plain newline (no pad) after a legit config
+    (
+        _LEGIT_CONFIG + _REAL_PAYLOAD + b"\n",
+        [b"A10-", b"0xa322E5f3", b"withRpcEndpoints", b"rpcBatch"],
+        None,  # must at least be clean; exact form not asserted
     ),
     # 2. ordinary minified JS (no hard indicator) -> byte-for-byte identical
     (
