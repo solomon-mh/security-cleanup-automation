@@ -274,14 +274,29 @@ class SecurityCleanup:
         return report
 
 if __name__ == '__main__':
-    if len(sys.argv) < 2:
-        print("Usage: python3 cleanup.py <repo_path>")
+    args = [a for a in sys.argv[1:] if not a.startswith('-')]
+    scan_only = '--scan' in sys.argv or '--scan-only' in sys.argv
+
+    if not args:
+        print("Usage: python3 cleanup.py [--scan] <repo_path>")
+        print("  --scan  detect and report only; make no changes "
+              "(exit 1 if anything is infected)")
         sys.exit(1)
-    
-    repo_path = sys.argv[1]
+
+    repo_path = args[0]
     cleanup = SecurityCleanup(repo_path)
+
+    if scan_only:
+        cleanup.scan_directory()
+        report = cleanup.generate_report()
+        print("\n" + "="*60)
+        print("SCAN REPORT (no changes made)")
+        print("="*60)
+        print(json.dumps(report, indent=2))
+        sys.exit(1 if cleanup.infected_files else 0)
+
     report = cleanup.run()
-    
+
     print("\n" + "="*60)
     print("CLEANUP REPORT")
     print("="*60)
