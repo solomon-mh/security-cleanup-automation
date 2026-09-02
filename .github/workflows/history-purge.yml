@@ -96,16 +96,30 @@ jobs:
       - name: Scan and record indicators (before)
         working-directory: target
         run: |
-          set -uo pipefail
-          python "$RUNNER_TEMP/purge/cleanup.py" --scan . | tee ../scan-before.log || true
+          set +e
+          RX='0xa322E5f3|A10-\*?4650|withRpcEndpoints|eth_getTra|eth_blockN|eth_getBlo|rpcCall|rpcBatch'
+          python "$RUNNER_TEMP/purge/cleanup.py" --scan . | tee ../scan-before.log
           {
             echo "# ${{ matrix.repo }} - indicators in history (before)"
             echo
-            git rev-list --all \
-              | xargs -r git grep -InE \
-                  '0xa322E5f3|A10-\*?4650|withRpcEndpoints|eth_getTra|eth_blockN|eth_getBlo|rpcCall|rpcBatch' \
-              | head -n 300 || echo "(no matches, or output truncated at 300 lines)"
+            git rev-list --all | xargs -r git grep -InE "$RX" | head -n 300
+            echo "(list truncated at 300 lines if longer)"
           } > ../report-before.md
+
+          # Dump the offending files from the current tip, control chars made
+          # visible (cat -v), so the payload and its \r padding can be reviewed.
+          mkdir -p ../payload-samples
+          git grep -lIE "$RX" HEAD -- 2>/dev/null | sed 's/^HEAD://' | sort -u | while read -r f; do
+            [ -z "$f" ] && continue
+            out="../payload-samples/$(echo "$f" | tr '/' '_').cat-v.txt"
+            {
+              echo "=== $f  (repo ${{ matrix.repo }}, HEAD) ==="
+              git show "HEAD:$f" | cat -v | head -c 60000
+              echo
+              echo "=== (truncated at 60000 chars) ==="
+            } > "$out"
+          done
+          ls -la ../payload-samples || true
 
       - name: Create recovery bundle
         working-directory: target
@@ -119,6 +133,7 @@ jobs:
             backup-${{ matrix.repo }}.bundle
             scan-before.log
             report-before.md
+            payload-samples/
           retention-days: 90
           if-no-files-found: warn
 
