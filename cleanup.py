@@ -34,6 +34,13 @@ MALICIOUS_PATTERNS = [
     r'\.woff2.*exec|\.ttf.*require|\.woff.*eval',
 ]
 
+# Helper files the attack plants and then hides via .gitignore
+MALICIOUS_GITIGNORE_ENTRIES = [
+    r'temp_auto_push\.bat',
+    r'temp_interactive_push\.bat',
+    r'branch_structure\.json',
+]
+
 # Files that commonly get infected
 TARGET_FILES = [
     'eslint.config.js',
@@ -140,10 +147,17 @@ class SecurityCleanup:
             content = re.sub(r'_0x\w+.*', '', content)
             content = re.sub(r'global\[.*', '', content)
             content = re.sub(r'const\s+_0x.*', '', content)
-            
+
+            # Remove entries that hide the attack's helper files
+            for entry in MALICIOUS_GITIGNORE_ENTRIES:
+                content = re.sub(r'(?m)^.*' + entry + r'.*$\n?', '', content)
+
             # Keep only legitimate gitignore patterns
-            lines = [line for line in content.split('\n') 
-                    if line.strip() and not re.search(MALICIOUS_PATTERNS[0], line)]
+            malicious_entry = re.compile('|'.join(MALICIOUS_GITIGNORE_ENTRIES), re.IGNORECASE)
+            lines = [line for line in content.split('\n')
+                    if line.strip()
+                    and not re.search(MALICIOUS_PATTERNS[0], line)
+                    and not malicious_entry.search(line)]
             
             content = '\n'.join(lines)
             
