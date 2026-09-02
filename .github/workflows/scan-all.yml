@@ -101,8 +101,12 @@ jobs:
             if [ "${SCAN_HISTORY}" = "true" ]; then
               git clone --quiet --mirror "https://x-access-token:${GH_TOKEN}@github.com/${full}.git" work.git 2>/dev/null \
                 || { printf '%-42s | %-9s | %s\n' "$full" "ERROR" "clone failed" | tee -a report.txt; n_err=$((n_err+1)); continue; }
+              # NOTE: xargs appends the commit list at the end, so it must come
+              # after the pattern with no `-- <pathspec>` in between, or git treats
+              # the commit SHAs as pathnames. Exclude .md with a post-filter.
               raw=$( (cd work.git && git rev-list --all 2>/dev/null \
-                    | xargs -r git grep -nIE "$BOTH" -- ':!*.md' 2>/dev/null) | head -n 400 || true)
+                    | xargs -r git grep -nIE "$BOTH" 2>/dev/null) \
+                    | grep -vE ':[^:]+\.md:[0-9]+:' | head -n 400 || true)
               rm -rf work.git
             else
               git clone --quiet --depth 1 "https://x-access-token:${GH_TOKEN}@github.com/${full}.git" work 2>/dev/null \
