@@ -1,8 +1,9 @@
 name: Purge supply-chain malware from history
 
 # DESTRUCTIVE. A real run rewrites every commit in each target repo with
-# git-filter-repo and force-pushes all branches and tags. Existing clones,
-# forks and open PRs will break. Read HISTORY-PURGE.md before dry_run=false.
+# git-filter-repo and force-pushes the default branch and tags. Existing
+# clones, forks and open PRs will break. Read HISTORY-PURGE.md before
+# dry_run=false.
 
 on:
   workflow_dispatch:
@@ -93,6 +94,33 @@ jobs:
           fetch-depth: 0
           path: target
 
+      # --- FIX: actions/checkout can leave the workspace on a detached HEAD.
+      # If that happens, the old push command (refs/heads/*:refs/heads/*)
+      # silently matches zero local branches and pushes nothing, while still
+      # exiting 0. These two steps force a real local branch to exist before
+      # filter-repo runs, so the later push has something real to push.
+      - name: Confirm local branch state (debug)
+        working-directory: target
+        run: |
+          echo "HEAD is:"
+          git symbolic-ref -q HEAD || echo "(detached)"
+          echo "Local branches:"
+          git branch -a
+          DEFAULT_BRANCH=$(curl -fsS -H "Authorization: Bearer ${{ secrets.CLEANUP_TOKEN }}" \
+            -H "Accept: application/vnd.github+json" \
+            "https://api.github.com/repos/${{ inputs.owner }}/${{ matrix.repo }}" | jq -r .default_branch)
+          echo "Default branch (via API): $DEFAULT_BRANCH"
+          echo "DEFAULT_BRANCH=$DEFAULT_BRANCH" >> "$GITHUB_ENV"
+
+      - name: Ensure we're on a real local branch, not detached
+        working-directory: target
+        run: |
+          set -euo pipefail
+          git checkout -B "$DEFAULT_BRANCH"
+          echo "Now on branch:"
+          git symbolic-ref -q HEAD
+      # --- end fix block ---
+
       - name: Scan and record indicators (before)
         working-directory: target
         run: |
@@ -106,8 +134,6 @@ jobs:
             echo "(list truncated at 300 lines if longer)"
           } > ../report-before.md
 
-          # Dump the offending files from the current tip, control chars made
-          # visible (cat -v), so the payload and its \r padding can be reviewed.
           mkdir -p ../payload-samples
           git grep -lIE "$RX" HEAD -- 2>/dev/null | sed 's/^HEAD://' | sort -u | while read -r f; do
             [ -z "$f" ] && continue
@@ -209,8 +235,17 @@ jobs:
           git remote remove origin 2>/dev/null || true
           git remote add origin "https://x-access-token:${TOKEN}@github.com/${{ inputs.owner }}/${{ matrix.repo }}.git"
 
-          git push --force --prune origin 'refs/heads/*:refs/heads/*'
+          # FIX: push the actual branch we're on by name, instead of the old
+          # wildcard 'refs/heads/*:refs/heads/*', which matches nothing (and
+          # silently succeeds) if the checkout was left in detached HEAD state.
+          echo "Pushing branch: $DEFAULT_BRANCH"
+          git push --force origin "HEAD:refs/heads/${DEFAULT_BRANCH}"
           git push --force origin 'refs/tags/*:refs/tags/*'
+
+          echo "::group::Verify remote actually changed"
+          git ls-remote origin "refs/heads/${DEFAULT_BRANCH}"
+          echo "::endgroup::"
+
           echo "::notice::rewritten history force-pushed for ${{ matrix.repo }}"
 
       - name: Scan again (after)
